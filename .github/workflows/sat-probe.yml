@@ -1,0 +1,29 @@
+name: sat-probe
+# 手動執行一次:在 GitHub 上驗證 Himawari 衛星模組(S3 目錄結構、tile 格式、組場景),並把預覽圖當成 artifact 下載。
+on:
+  workflow_dispatch:
+    inputs:
+      time:
+        description: "要測試的 UTC 時間(留空=1 小時前);日落前後最有意義,例如 2026-11-23T09:10Z"
+        required: false
+        default: ""
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-sat.txt
+      - name: Probe
+        env:
+          PYTHONPATH: src
+        run: python scripts/sat_probe.py ${{ inputs.time }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sat-probe
+          path: .cache/sat/probe.png
+          if-no-files-found: ignore

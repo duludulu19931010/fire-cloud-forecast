@@ -1,0 +1,64 @@
+{
+ "updated": "2026-11-23T11:34+00:00",
+ "detector": {
+  "ratio_thr": 1.4,
+  "tau": 0.4
+ },
+ "truth_w": {
+  "human": 1.0,
+  "sat": 0.5,
+  "cwa": 0.6
+ },
+ "sunset": {
+  "champion": "prior",
+  "model": {
+   "kind": "logit",
+   "names": [
+    "s"
+   ],
+   "beta": [
+    -2.52,
+    6.0
+   ]
+  }
+ },
+ "sunrise": {
+  "champion": "prior",
+  "model": {
+   "kind": "logit",
+   "names": [
+    "s"
+   ],
+   "beta": [
+    -2.52,
+    6.0
+   ]
+  }
+ },
+ "sea_of_clouds": {
+  "champion": "prior",
+  "model": {
+   "kind": "logit",
+   "names": [
+    "s"
+   ],
+   "beta": [
+    -2.52,
+    6.0
+   ]
+  }
+ },
+ "ryuli": {
+  "champion": "prior",
+  "model": {
+   "kind": "logit",
+   "names": [
+    "s"
+   ],
+   "beta": [
+    -2.52,
+    6.0
+   ]
+  }
+ }
+}

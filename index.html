@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>天象預報・未來 24 小時</title>
+<style>
+:root{--bg:#f2f5fa;--panel:#fff;--ink:#14203a;--mute:#5d6b86;--line:#d7deea;--glow:#d1366f;--sea:#17907f;--ryuli:#6f56d9;--warn:#a65b00}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1526;--panel:#151e34;--ink:#e7ecf7;--mute:#97a4c0;--line:#27324e;--glow:#ff6b9c;--sea:#45cbbb;--ryuli:#a897ff;--warn:#f0b35a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:920px;margin:0 auto;padding:24px 16px 56px}
+h1{font-size:1.5rem;font-weight:700;margin:0 0 4px;letter-spacing:.02em}
+h2{font-size:1.05rem;font-weight:600;margin:32px 0 10px}
+.sub{color:var(--mute);margin:0;font-size:.9rem}
+.stale{color:var(--warn);font-weight:600}
+a{color:inherit}
+.lead{display:grid;gap:4px;margin:18px 0 0;padding:0;list-style:none}
+.lead li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.lead b{min-width:6.5em}
+.lead .none{color:var(--mute)}
+.tl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px 8px}
+.tl-in{min-width:600px}
+.lane{display:grid;grid-template-columns:8.5em 1fr;align-items:center;min-height:44px;border-top:1px solid var(--line)}
+.lane:first-child{border-top:0}
+.lane .nm{font-size:.9rem;font-weight:600;line-height:1.3}
+.lane .nm small{display:block;color:var(--mute);font-weight:400}
+.track{position:relative;height:30px;background:linear-gradient(90deg,transparent calc(12.5% - 1px),var(--line) 0 12.5%,transparent 0) 0 0/12.5% 100%}
+.bar{position:absolute;top:3px;height:24px;min-width:10px;border:0;border-radius:4px;padding:0;cursor:pointer;background:var(--c)}
+.bar:focus-visible,summary:focus-visible,.chip:focus-visible,.more:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.ticks{position:relative;height:20px;margin-left:8.5em;font-size:.78rem;color:var(--mute)}
+.ticks span{position:absolute;transform:translateX(-50%)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 14px;font:inherit;font-size:.9rem;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+details{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:8px;margin-bottom:8px}
+summary{display:grid;grid-template-columns:4.6em 1fr auto;gap:12px;align-items:center;padding:10px 14px;cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+.p{font-size:1.9rem;font-weight:300;line-height:1}
+.p small{font-size:.9rem}
+.who b{display:block;font-weight:600}
+.who span{color:var(--mute);font-size:.88rem}
+.conf{font-size:.85rem;color:var(--mute);text-align:right}
+.body{padding:2px 16px 16px;display:grid;gap:12px}
+.body ul{margin:0;padding-left:1.2em}
+.fac{display:grid;grid-template-columns:7em 1fr 3em;gap:6px 10px;align-items:center;font-size:.88rem;margin:0}
+.fac i{display:block;height:8px;border-radius:4px;background:var(--line);position:relative;overflow:hidden}
+.fac i::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--c)}
+.muted{color:var(--mute);font-size:.88rem;margin:0}
+.body img{width:100%;height:auto;border-radius:6px;background:var(--bg)}
+.more{display:block;margin:10px auto 0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 18px;font:inherit;cursor:pointer}
+footer{margin-top:36px;color:var(--mute);font-size:.85rem;display:grid;gap:6px}
+.err{padding:16px;border:1px solid var(--warn);border-radius:8px;color:var(--warn)}
+</style>
+</head>
+<body>
+<main>
+<h1>天象預報・未來 24 小時</h1>
+<p class="sub" id="fresh">載入中…</p>
+<noscript><p class="err">需要啟用 JavaScript 才能顯示預報。資料也可直接讀取 next24h.json。</p></noscript>
+<ul class="lead" id="lead"></ul>
+<h2>24 小時時間軸(台灣時間)</h2>
+<div class="tl"><div class="tl-in"><div id="lanes"></div><div class="ticks" id="ticks"></div></div></div>
+<p class="muted">每個色塊是一個地點的高峰窗口,越不透明機率越高;點色塊跳到該地點的說明。</p>
+<h2>各地點預報</h2>
+<div class="chips" id="chips" role="group" aria-label="現象篩選"></div>
+<div id="list"></div>
+<button class="more" id="more" hidden>顯示全部</button>
+<footer id="foot"></footer>
+</main>
+<script>
+const KIND={sunset:['日落火燒雲','var(--glow)'],sunrise:['日出朝燒','var(--glow)'],sea_of_clouds:['雲海','var(--sea)'],ryuli:['琉璃光','var(--ryuli)']};
+const FAC={canvas:'畫布(雲)',light_path:'光路',overhead_open:'頭頂開口',air:'空氣透明度',color:'泛紅'};
+const tf=new Intl.DateTimeFormat('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Taipei'});
+const df=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei'});
+const hh=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Taipei'});
+const $=s=>document.querySelector(s);
+const el=(t,a={},...c)=>{const n=document.createElement(t);for(const[k,v]of Object.entries(a)){if(k==='class')n.className=v;else if(k==='style')n.style.cssText=v;else if(k.startsWith('on'))n.addEventListener(k.slice(2),v);else n.setAttribute(k,v)}for(const x of c.flat())if(x!=null)n.append(x);return n};
+const pct=p=>Math.round(p*100);
+const when=ts=>{const d=df.format(ts*1000),t=df.format(Date.now()),n=df.format(Date.now()+864e5);return(d===t?'今天':d===n?'明天':d.slice(5))+' '+tf.format(ts*1000)};
+let D=null,M=null,filter='all',showAll=false;
+
+function lead(){
+  const ul=$('#lead');ul.replaceChildren();
+  for(const k of Object.keys(KIND)){
+    const s=D.summary[k];if(!s)continue;
+    const none=s.chance==='幾乎沒有';
+    ul.append(el('li',{},el('b',{style:'color:'+KIND[k][1]},KIND[k][0]),
+      el('span',{class:none?'none':''},none?'未來 24 小時幾乎沒有機會':`機率「${s.chance}」${pct(s.max_prob)}%・${s.best.name}・高峰 ${when(Date.parse(s.best.peak)/1000)}`)));
+  }
+}
+function lanes(){
+  const t0=Math.floor(M.generated_ts/3600)*3600,span=D.horizon_h*3600;
+  const L=$('#lanes');L.replaceChildren();
+  for(const k of Object.keys(KIND)){
+    const es=D.events.filter(e=>e.kind===k);if(!es.length)continue;
+    const best=es.reduce((a,b)=>b.prob>a.prob?b:a);
+    const tr=el('div',{class:'track'});
+    for(const e of es.slice().sort((a,b)=>a.prob-b.prob)){
+      const a=Math.max(e.window_ts[0],t0),b=Math.min(e.window_ts[1]+600,t0+span);if(b<=a)continue;
+      tr.append(el('button',{class:'bar',style:`left:${(a-t0)/span*100}%;width:${(b-a)/span*100}%;--c:${KIND[k][1]};opacity:${(.2+.8*e.prob).toFixed(2)}`,
+        title:`${e.name} ${pct(e.prob)}%`,'aria-label':`${KIND[k][0]} ${e.name} 機率 ${pct(e.prob)}%`,onclick:()=>jump(e)}));
+    }
+    L.append(el('div',{class:'lane'},el('div',{class:'nm'},KIND[k][0],el('small',{},`${best.name} ${pct(best.prob)}%`)),tr));
+  }
+  const T=$('#ticks');T.replaceChildren();
+  for(let h=0;h<=D.horizon_h;h++){const ts=t0+h*3600;if(+hh.format(ts*1000)%3===0)T.append(el('span',{style:`left:${h/D.horizon_h*100}%`},tf.format(ts*1000)))}
+}
+function row(e){
+  const c=KIND[e.kind][1],id=`${e.site}-${e.kind}-${e.date}`;
+  const d=el('details',{style:'--c:'+c,'data-id':id});
+  const conf=`信心${e.confidence}`+(e.score_range?`・分數 ${Math.round(e.score_range[0])}–${Math.round(e.score_range[1])}`:'');
+  d.append(el('summary',{},el('div',{class:'p'},String(pct(e.prob)),el('small',{},'%')),
+    el('div',{class:'who'},el('b',{},e.name),el('span',{},`${KIND[e.kind][0]}・高峰 ${when(e.peak_ts)}・窗口 ${tf.format(e.window_ts[0]*1000)}–${tf.format(e.window_ts[1]*1000)}`)),
+    el('div',{class:'conf'},conf)));
+  const b=el('div',{class:'body'});
+  b.append(e.notes&&e.notes.length?el('ul',{},e.notes.map(n=>el('li',{},n))):el('p',{class:'muted'},'沒有偵測到明顯阻礙。'));
+  const bits=[`綜合分數 ${e.score}`];
+  if(e.score_fc!=null&&e.score_fc!==e.score)bits.push(`純預報 ${e.score_fc}`);
+  if(e.ens)bits.push(`集合預報 ${e.ens.n} 成員中 ${pct(e.ens.frac)}% 達事件門檻`);
+  if(e.factors&&e.factors.gap_m!=null)bits.push(e.factors.gap_m>=0?`站點高於濕層頂約 ${e.factors.gap_m} 公尺`:'模式顯示站點可能被雲霧包住');
+  b.append(el('p',{class:'muted'},bits.join('・')));
+  if(e.factors&&e.factors.canvas!=null){
+    const f=el('div',{class:'fac'});
+    for(const[k,n]of Object.entries(FAC))if(e.factors[k]!=null)f.append(el('span',{},n),el('i',{style:`--w:${Math.min(100,e.factors[k]*100)}%;--c:${c}`}),el('span',{},e.factors[k].toFixed(2)));
+    b.append(f);
+  }
+  const ms=Object.entries(e.models||{});
+  if(ms.length)b.append(el('p',{class:'muted'},'各來源分數:'+ms.map(([m,s])=>`${m} ${Math.round(s)}`).join('、')));
+  d.addEventListener('toggle',()=>{if(d.open&&!d.dataset.img){d.dataset.img=1;b.append(el('img',{src:`charts/${e.site}.svg?${M.generated_ts}`,alt:`${e.name} 未來 24 小時雲層與事件圖`,loading:'lazy'}))}},{once:false});
+  const gh=location.hostname.endsWith('.github.io')?`https://github.com/${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}/issues/new?template=observation.yml`:null;
+  if(gh)b.append(el('p',{class:'muted'},el('a',{href:gh,target:'_blank',rel:'noopener'},'事後回報這次有沒有燒(幫系統學習)')));
+  d.append(b);return d;
+}
+function list(){
+  const C=$('#chips');C.replaceChildren();
+  for(const[k,n]of[['all','全部'],...Object.entries(KIND).map(([k,v])=>[k,v[0]])])
+    C.append(el('button',{class:'chip','aria-pressed':String(filter===k),onclick:()=>{filter=k;showAll=false;list()}},n));
+  const es=D.events.filter(e=>filter==='all'||e.kind===filter).sort((a,b)=>b.prob-a.prob);
+  const shown=showAll||filter!=='all'?es:es.slice(0,10);
+  $('#list').replaceChildren(...(shown.length?shown.map(row):[el('p',{class:'muted'},'未來 24 小時內沒有這類事件的資料。')]));
+  const m=$('#more');m.hidden=!(filter==='all'&&es.length>10&&!showAll);m.onclick=()=>{showAll=true;list()};
+}
+function jump(e){filter=e.kind;showAll=true;list();const d=document.querySelector(`[data-id="${e.site}-${e.kind}-${e.date}"]`);if(d){d.open=true;d.scrollIntoView({block:'center'})}}
+function head(){
+  const age=(Date.now()/1000-M.generated_ts)/3600;
+  const f=$('#fresh');f.replaceChildren(`更新於 ${when(M.generated_ts)}`);
+  if(age>3)f.append(' ',el('span',{class:'stale'},`(已 ${age.toFixed(1)} 小時沒有更新,排程可能延遲)`));
+  const src=M.sources||{},on=[['open_meteo','Open-Meteo'],['meteoblue','Meteoblue'],['cwa','氣象署測站'],['himawari_nowcast','衛星 nowcast']].filter(([k])=>src[k]).map(x=>x[1]);
+  const ch=Object.values(M.champions||{}),proto=ch.length&&ch.every(c=>c==='prior');
+  $('#foot').replaceChildren(
+    el('div',{},'本次使用的資料:'+(on.join('、')||'—')+(src.ensemble_events?`;集合預報 ${src.ensemble_events} 個事件`:'')),
+    el('div',{},proto?'機率目前使用物理先驗,尚未用實際觀測校準;累積人工回報與觀測真值後會自動改善。':'機率已由自動回測校準,各現象的模型選擇與樣本外成績見回測報告。'),
+    el('div',{},el('a',{href:'REPORT.md'},'回測與自我學習報告'),'・',el('a',{href:'next24h.json'},'next24h.json')),
+    el('div',{},M.attribution||''));
+}
+async function load(){
+  try{
+    const h=Math.floor(Date.now()/6e5);
+    const[a,b]=await Promise.all([fetch('next24h.json?'+h),fetch('meta.json?'+h)]);
+    if(!a.ok||!b.ok)throw new Error(`HTTP ${a.status}/${b.status}`);
+    D=await a.json();M=await b.json();head();lead();lanes();list();
+  }catch(e){$('#fresh').replaceChildren(el('span',{class:'err'},`讀不到預報資料(${e.message})。請確認 GitHub Pages 的來源是 data 分支,且 hourly-forecast 至少成功跑過一次。`))}
+}
+load();setInterval(load,6e5);
+</script>
+</body>
+</html>

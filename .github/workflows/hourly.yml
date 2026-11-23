@@ -1,0 +1,42 @@
+name: hourly-forecast
+on:
+  schedule:
+    - cron: "17 * * * *"        # 避開整點(整點最擁擠、延遲最久)
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: data-branch
+  cancel-in-progress: false
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-sat.txt
+      - name: Optional satellite deps (numpy, h5netcdf;失敗只會停用衛星功能)
+        run: pip install -r requirements-sat.txt || echo "satellite features disabled"
+      - name: Mount data branch
+        run: bash scripts/checkout_data.sh
+      - name: Restore cache (NWP 每 3 小時才重抓;衛星 tile 索引)
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: om-${{ github.run_id }}
+          restore-keys: om-
+      - name: Forecast + truth + learn
+        env:
+          PYTHONPATH: src
+          CWA_API_KEY: ${{ secrets.CWA_API_KEY }}                  # 選填:雲海/琉璃光的測站觀測(也是它們的真值來源)
+          METEOBLUE_API_KEY: ${{ secrets.METEOBLUE_API_KEY }}      # 選填:meteoblue 當共識成員
+          OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}    # 選填:共享 IP 被限流或商用時
+        run: python -m fcf.run --config config/sites.json --out data --cache .cache/om.json
+      - name: Ship dashboard page (web/index.html → data 分支根目錄)
+        run: cp web/index.html data/index.html
+      - name: Publish to data branch
+        run: bash scripts/publish_data.sh forecast

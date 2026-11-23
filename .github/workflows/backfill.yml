@@ -1,0 +1,29 @@
+name: backfill-cold-start
+# 手動觸發一次:用 Previous Runs API 回補歷史預報快照,並用衛星封存建立觀測型真值,讓自我學習不必從零等待。
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "回補天數"
+        default: "30"
+permissions:
+  contents: write
+concurrency:
+  group: data-branch
+  cancel-in-progress: false
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-sat.txt || echo "satellite features disabled"
+      - run: bash scripts/checkout_data.sh
+      - env:
+          PYTHONPATH: src
+          OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}
+        run: python -m fcf.backfill --days "${{ inputs.days }}" --out data --cache .cache/om.json
+      - run: bash scripts/publish_data.sh backfill

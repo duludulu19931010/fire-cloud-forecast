@@ -1,0 +1,54 @@
+name: 觀測回報(教系統學習)
+description: 回報某天某地「實際有沒有燒」。系統每小時會用這些回報重新校準機率。
+title: "觀測回報"
+labels: ["observation"]
+body:
+  - type: dropdown
+    id: site
+    attributes:
+      label: 地點
+      options:
+        - bali 八里左岸
+        - tamsui 淡水漁人碼頭
+        - gaomei 高美濕地
+        - anping 安平漁光島
+        - xiziwan 西子灣
+        - sanxiantai 三仙台
+        - qixingtan 七星潭
+        - waoao 外澳沙灘
+        - alishan_shizhuo 阿里山公路・石棹
+        - alishan_xiding 阿里山公路・隙頂
+        - qingjing 清境農場
+        - taipingshan 太平山
+        - hehuan_wuling 合歡山武嶺
+    validations: {required: true}
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 類型
+      options:
+        - sunset 日落火燒雲
+        - sunrise 日出朝燒
+        - sea_of_clouds 雲海(當天早晨)
+        - ryuli 琉璃光(當天晚上起算的夜晚)
+    validations: {required: true}
+  - type: input
+    id: date
+    attributes:
+      label: 日期
+      description: 事件當天(當地日期),格式 YYYY-MM-DD。琉璃光填「夜晚開始的那一天」。
+    validations: {required: true}
+  - type: dropdown
+    id: rating
+    attributes:
+      label: 評級
+      options:
+        - 0 沒燒/沒有
+        - 1 小燒(有色但不驚豔)
+        - 2 明顯(值得出門)
+        - 3 大景
+    validations: {required: true}
+  - type: textarea
+    id: note
+    attributes:
+      label: 備註(選填)

@@ -84,7 +84,7 @@ def build(cfg, now, out, pending_keys, hs=None, sfc_of=None, detector=None):
         if k in GLOW_SPAN:
             t = sat_truth(hs, e, (sfc_of(s) if sfc_of else None) or 299.0, detector)
         else:
-            t = sea_truth(samples.get(s["id"], []), k, e["t0"], e["t1"])
+            t = sea_truth(samples.get(s["id"], []), k, e["t0"], e["t1"], (cfg.get("truth") or {}).get("sea_t", SEA_T))
         if t:
             rows.append({"site": s["id"], "kind": k, "date": e["date"], "ts": int(now), **t})
     month = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m")

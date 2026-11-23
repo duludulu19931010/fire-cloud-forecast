@@ -180,7 +180,7 @@ def s3_list(prefix, bucket=BUCKET, delimiter=None, opener=urllib.request.urlopen
             q["continuation-token"] = token
         with opener(f"https://{bucket}.s3.amazonaws.com/?" + urllib.parse.urlencode(q), timeout=30) as r:
             root = ET.fromstring(r.read())
-        keys += [e.text for e in root.iter(NS + "Key")] + [e.text for e in root.iter(NS + "Prefix") if delimiter]
+        keys += [e.text for e in root.iter(NS + "Key")] + [e.text for e in root.iter(NS + "Prefix") if delimiter and e.text and e.text != prefix]
         nt = root.find(NS + "NextContinuationToken")
         if nt is None or not nt.text:
             return keys

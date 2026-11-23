@@ -60,7 +60,7 @@
 ## 部署
 1. 推上 `main`;Settings → Actions → Workflow permissions 選 **Read and write**。
 2. Secrets(皆選填):`CWA_API_KEY`、`METEOBLUE_API_KEY`、`OPEN_METEO_API_KEY`。**沒有 CWA 金鑰 → 雲海/琉璃光沒有觀測型真值,只能靠人工回報學習。**
-3. 先跑 `PYTHONPATH=src python scripts/sat_probe.py`(需 `pip install -r requirements-sat.txt`):確認 S3 目錄、tile 檔名、組出的場景與 `.cache/sat/probe.png`;人眼確認「雲是雲、紅光雲在太陽方向」。目錄結構不同就改 `config.sat.prefix`。
+3. 先驗證衛星:Actions → `sat-probe` → Run workflow(或本機 `PYTHONPATH=src python scripts/sat_probe.py`)(需 `pip install -r requirements-sat.txt`):確認 S3 目錄、tile 檔名、組出的場景與 `.cache/sat/probe.png`;人眼確認「雲是雲、紅光雲在太陽方向」。目錄結構不同就改 `config.sat.prefix`。
 4. Actions → `hourly-forecast` → Run workflow,看 log 有沒有 `[fetch]`/`[meteoblue]`/`[sat]` 失敗訊息。
 5. (建議)Actions → `backfill-cold-start` → days=30。
 6. Settings → Pages → Source 選 `data` 分支。網頁:`https://<user>.github.io/<repo>/`(`web/index.html`,每小時由 workflow 複製到 data 分支);

@@ -155,6 +155,20 @@ class Sat(unittest.TestCase):
         self.assertLess(idx(red_cloud=False), 0.05)          # 白雲:沒被紅光照亮
         self.assertLess(idx(low_over=True), 0.05)            # 頭頂低雲蓋住
 
+    def test_s3_list_parses_prefixes_keys_and_pagination(self):
+        import io
+        ns = 'xmlns="http://s3.amazonaws.com/doc/2006-03-01/"'
+        pages = [f'<ListBucketResult {ns}><Prefix>AHI</Prefix><CommonPrefixes><Prefix>AHI-L1b-FLDK/</Prefix></CommonPrefixes>'
+                 f'<IsTruncated>true</IsTruncated><NextContinuationToken>T2</NextContinuationToken></ListBucketResult>',
+                 f'<ListBucketResult {ns}><Prefix>AHI</Prefix><Contents><Key>AHI-x.nc</Key></Contents></ListBucketResult>']
+        calls = []
+        def opener(url, timeout=0):
+            calls.append(url)
+            return io.BytesIO(pages[len(calls) - 1].encode())
+        out = sat.s3_list("AHI", opener=opener, delimiter="/")
+        self.assertEqual(out, ["AHI-L1b-FLDK/", "AHI-x.nc"])           # 不含請求本身的 Prefix;分頁會接續取
+        self.assertIn("continuation-token=T2", calls[1])
+
     def test_layer_fractions_and_png(self):
         sc = scene()
         la, lo = geo.dest(BALI["lat"], BALI["lon"], 250.0, 100)

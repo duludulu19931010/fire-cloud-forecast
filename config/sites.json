@@ -1,0 +1,202 @@
+{
+  "tz_offset": 8,
+  "forecast_max_age_h": 3,
+  "models": {
+    "ecmwf_ifs025": 0.4,
+    "icon_seamless": 0.3,
+    "gfs_seamless": 0.3
+  },
+  "_note": "座標/海拔為概略值(verify=true),請用地圖校正。light=山下可見燈火強度 0~1;base=用來估濕層頂的低地參考點。",
+  "sites": [
+    {
+      "id": "bali",
+      "name": "八里左岸(渡船頭)",
+      "lat": 25.1535,
+      "lon": 121.43,
+      "elev": 5,
+      "types": [
+        "sunset"
+      ],
+      "verify": true
+    },
+    {
+      "id": "tamsui",
+      "name": "淡水漁人碼頭",
+      "lat": 25.1836,
+      "lon": 121.4105,
+      "elev": 5,
+      "types": [
+        "sunset"
+      ],
+      "verify": true
+    },
+    {
+      "id": "gaomei",
+      "name": "高美濕地",
+      "lat": 24.3123,
+      "lon": 120.5503,
+      "elev": 2,
+      "types": [
+        "sunset"
+      ],
+      "verify": true
+    },
+    {
+      "id": "anping",
+      "name": "安平漁光島",
+      "lat": 22.9935,
+      "lon": 120.1625,
+      "elev": 3,
+      "types": [
+        "sunset"
+      ],
+      "verify": true
+    },
+    {
+      "id": "xiziwan",
+      "name": "西子灣",
+      "lat": 22.623,
+      "lon": 120.264,
+      "elev": 5,
+      "types": [
+        "sunset"
+      ],
+      "verify": true
+    },
+    {
+      "id": "sanxiantai",
+      "name": "三仙台",
+      "lat": 23.1213,
+      "lon": 121.414,
+      "elev": 5,
+      "types": [
+        "sunrise"
+      ],
+      "verify": true
+    },
+    {
+      "id": "qixingtan",
+      "name": "七星潭",
+      "lat": 24.0314,
+      "lon": 121.621,
+      "elev": 5,
+      "types": [
+        "sunrise"
+      ],
+      "verify": true
+    },
+    {
+      "id": "waoao",
+      "name": "外澳沙灘",
+      "lat": 24.862,
+      "lon": 121.831,
+      "elev": 3,
+      "types": [
+        "sunrise"
+      ],
+      "verify": true
+    },
+    {
+      "id": "alishan_shizhuo",
+      "name": "阿里山公路・石棹",
+      "lat": 23.49,
+      "lon": 120.725,
+      "elev": 1600,
+      "types": [
+        "sea_of_clouds",
+        "ryuli"
+      ],
+      "light": 1.0,
+      "base": [
+        23.48,
+        120.45
+      ],
+      "verify": true
+    },
+    {
+      "id": "alishan_xiding",
+      "name": "阿里山公路・隙頂",
+      "lat": 23.48,
+      "lon": 120.69,
+      "elev": 1350,
+      "types": [
+        "sea_of_clouds",
+        "ryuli"
+      ],
+      "light": 1.0,
+      "base": [
+        23.48,
+        120.45
+      ],
+      "verify": true
+    },
+    {
+      "id": "qingjing",
+      "name": "清境農場",
+      "lat": 24.0594,
+      "lon": 121.1625,
+      "elev": 1750,
+      "types": [
+        "sea_of_clouds",
+        "ryuli"
+      ],
+      "light": 0.7,
+      "base": [
+        23.96,
+        120.97
+      ],
+      "verify": true
+    },
+    {
+      "id": "taipingshan",
+      "name": "太平山",
+      "lat": 24.495,
+      "lon": 121.529,
+      "elev": 1950,
+      "types": [
+        "sea_of_clouds"
+      ],
+      "light": 0.3,
+      "base": [
+        24.75,
+        121.75
+      ],
+      "verify": true
+    },
+    {
+      "id": "hehuan_wuling",
+      "name": "合歡山武嶺",
+      "lat": 24.143,
+      "lon": 121.275,
+      "elev": 3275,
+      "types": [
+        "sea_of_clouds"
+      ],
+      "light": 0.2,
+      "base": [
+        23.96,
+        120.97
+      ],
+      "verify": true
+    }
+  ],
+  "meteoblue": {
+    "enabled": true,
+    "weight": 0.2,
+    "path": true
+  },
+  "ensemble": {
+    "enabled": true,
+    "model": "ecmwf_ifs025",
+    "max_events": 4,
+    "min_score": 15,
+    "thr": 40
+  },
+  "sat": {
+    "enabled": true,
+    "prefix": null
+  },
+  "truth": {
+    "sea_t": 60
+  }
+}

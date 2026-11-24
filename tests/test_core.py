@@ -132,23 +132,6 @@ def scene(red_cloud=True, low_over=False, site=BALI):
 
 
 class Sat(unittest.TestCase):
-    def test_projection_roundtrip(self):
-        for lat, lon in [(25.0, 121.5), (22.6, 120.3), (30, 128), (18, 112)]:
-            g = sat.to_geo(*sat.to_scan(lat, lon))
-            self.assertAlmostEqual(g[0], lat, places=5)
-            self.assertAlmostEqual(g[1], lon, places=5)
-
-    def test_assemble_nearest_neighbour(self):
-        import numpy as np
-        c = [sat.to_scan(la, lo) for la in (19.5, 27.5) for lo in (117.5, 124.5)]
-        x = np.linspace(min(a[0] for a in c), max(a[0] for a in c), 400)
-        y = np.linspace(max(a[1] for a in c), min(a[1] for a in c), 500)
-        f = lambda la, lo: 250.0 + (la - 18) * 3.0 + (lo - 112) * 0.5
-        rad = np.array([[f(*sat.to_geo(xx, yy)) for xx in x] for yy in y])
-        grid, (la0, lo0, st) = sat.assemble([{"x": x, "y": y, "rad": rad}], (20.0, 118.0, 27.0, 124.0), 0.1, 0, "rad")
-        err = max(abs(grid[i][j] - f(la0 - i * st, lo0 + j * st)) for i in range(len(grid)) for j in range(len(grid[0])))
-        self.assertLess(err, 0.1)
-
     def test_detector_separates_red_lit_clouds(self):
         idx = lambda **kw: sat.glow_index(sat.glow_features(scene(**kw), BALI, 250.0, 299.0))
         self.assertGreater(idx(), 0.9)                       # 紅光雲 + 頭頂乾淨
@@ -179,6 +162,115 @@ class Sat(unittest.TestCase):
         self.assertTrue(sat.preview(sc, p))
         with open(p, "rb") as f:
             self.assertEqual(f.read(8), b"\x89PNG\r\n\x1a\n")
+
+
+# ───────────────────────── HSD 讀取層(用合成檔驗證:檔頭解析、校正換算、地理定位、S3 取檔、組場景) ─────────────────────────
+import bz2  # noqa: E402
+import io  # noqa: E402
+import struct  # noqa: E402
+import urllib.parse  # noqa: E402
+
+REAL = {"sub_lon": 140.7, "cfac": 10233137, "lfac": 10233137, "coff": 2750.5, "loff": 2750.5, "rs": 42164.0, "req": 6378.137, "rpol": 6356.7523}
+FAKE = dict(REAL, cfac=1023314, lfac=1023314, coff=275.5, loff=275.5)                    # 縮小版全盤:550×550,每段 55 行
+FAKE_GRID = {20: (550, 1023314, 275.5), 10: (550, 1023314, 275.5), 5: (550, 1023314, 275.5)}
+HC, CC, KB = 6.62606957e-34, 2.99792458e8, 1.3806488e-23
+
+
+def planck_um(T, wl_um):
+    lam = wl_um * 1e-6
+    return 2 * HC * CC ** 2 / lam ** 5 / (math.exp(HC * CC / (lam * KB * T)) - 1) * 1e-6
+
+
+def make_hsd(band, segno, field, ncol=550, nseg=10, nline=55, gain=None, cprime=0.002):
+    wl = 10.4 if band >= 7 else 0.5
+    gain = gain or (0.0005 if band >= 7 else 0.01)
+    b1 = bytearray(282); struct.pack_into("<BHHB", b1, 0, 1, 282, 11, 0)
+    hdr_len = 282 + 50 + 127 + 139 + 147 + 259 + 47 + 120
+    struct.pack_into("<II", b1, 70, hdr_len, ncol * nline * 2)
+    b2 = bytearray(50); struct.pack_into("<BHHHHB", b2, 0, 2, 50, 16, ncol, nline, 0)
+    b3 = bytearray(127); struct.pack_into("<BHdIIffddddddd", b3, 0, 3, 127, FAKE["sub_lon"], FAKE["cfac"], FAKE["lfac"], FAKE["coff"], FAKE["loff"], FAKE["rs"], FAKE["req"], FAKE["rpol"], 0, 0, 0, 0)
+    b4 = bytearray(139); struct.pack_into("<BH", b4, 0, 4, 139)
+    b5 = bytearray(147); struct.pack_into("<BHHdHHHdd", b5, 0, 5, 147, band, wl, 16, 65535, 65534, gain, 0.0)
+    if band >= 7:
+        struct.pack_into("<9d", b5, 35, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, CC, HC, KB)
+    else:
+        struct.pack_into("<d", b5, 35, cprime)
+    b6 = bytearray(259); struct.pack_into("<BH", b6, 0, 6, 259)
+    first = (segno - 1) * nline + 1
+    b7 = bytearray(47); struct.pack_into("<BHBBH", b7, 0, 7, 47, nseg, segno, first)
+    cnt = []
+    for line in range(first, first + nline):
+        for col in range(1, ncol + 1):
+            g = sat.pix_to_geo(col, line, FAKE)
+            if g is None:
+                cnt.append(65534)
+                continue
+            v = field(*g)
+            rad = planck_um(v, wl) if band >= 7 else v / cprime
+            cnt.append(max(0, min(65000, int(round(rad / gain)))))
+    data = struct.pack("<%dH" % len(cnt), *cnt)
+    return bz2.compress(bytes(b1 + b2 + b3 + b4 + b5 + b6 + b7 + bytes(120)) + data)
+
+
+BT_F = lambda la, lo: 250.0 + (la - 18) * 3.0 + (lo - 112) * 0.5
+R01_F = lambda la, lo: 0.2 + 0.01 * (la - 20)
+R03_F = lambda la, lo: 1.5 * R01_F(la, lo)
+
+
+class Hsd(unittest.TestCase):
+    def test_geo_pixel_roundtrip_and_backside(self):
+        for lat, lon in [(25.0, 121.5), (22.6, 120.3), (27.0, 125.0), (20.5, 115.0)]:
+            c, l = sat.geo_to_pix(lat, lon, REAL)
+            la, lo = sat.pix_to_geo(c, l, REAL)
+            self.assertLess(abs(la - lat) + abs(lo - lon), 0.06)       # 誤差 ≤ 約 1 個 2 km 像素
+        self.assertIsNone(sat.geo_to_pix(25.0, -60.0, REAL))           # 衛星背面
+
+    def test_header_calibration_and_error_reporting(self):
+        T = 270.0
+        p = sat.parse_hsd(make_hsd(13, 4, lambda la, lo: T))
+        self.assertEqual((p["band"], p["ncol"], p["nline"], p["segno"], p["first_line"]), (13, 550, 55, 4, 166))
+        self.assertAlmostEqual(p["wl"], 10.4)
+        self.assertAlmostEqual(sat.convert(p, int(round(planck_um(T, 10.4) / p["gain"]))), T, delta=0.05)
+        v = sat.parse_hsd(make_hsd(1, 4, lambda la, lo: 0.3))
+        self.assertAlmostEqual(sat.convert(v, int(round(0.3 / v["cprime"] / v["gain"]))), 0.3, delta=0.01)
+        self.assertIsNone(sat.convert(p, 65535))                       # 錯誤像素
+        bad = bytearray(bz2.decompress(make_hsd(13, 4, lambda la, lo: T)))
+        bad[332 + 1] = 9                                               # 弄壞區塊 3 的長度欄
+        with self.assertRaises(sat.HSDError) as cm:
+            sat.parse_hsd(bytes(bad))
+        self.assertIn("前 16 bytes", str(cm.exception))                # 錯誤訊息含十六進位傾印,方便遠端除錯
+
+    def test_needed_segments_for_default_bbox(self):
+        segs = sat.Himawari(blob_dir=tempfile.mkdtemp()).needed_segments(13)
+        self.assertTrue(1 <= len(segs) <= 3 and all(1 <= x <= 10 for x in segs) and segs == sorted(segs))
+
+    def test_scene_from_fake_s3(self):
+        bbox, ts = (23.0, 119.0, 26.5, 123.5), datetime(2026, 11, 23, 9, 5, tzinfo=timezone.utc).timestamp()
+        blobs = {}
+        hs = None
+
+        def opener(url, timeout=0):
+            if "list-type" in url:
+                pre = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)["prefix"][0]
+                ns = 'xmlns="http://s3.amazonaws.com/doc/2006-03-01/"'
+                body = "".join(f"<Contents><Key>{k}</Key></Contents>" for k in blobs if k.startswith(pre))
+                return io.BytesIO(f"<ListBucketResult {ns}>{body}</ListBucketResult>".encode())
+            return io.BytesIO(blobs[urllib.parse.unquote(urllib.parse.urlparse(url).path.lstrip("/"))])
+        hs = sat.Himawari(bbox=bbox, step=0.1, opener=opener, grid=FAKE_GRID, blob_dir=tempfile.mkdtemp())
+        for band, f in ((13, BT_F), (1, R01_F), (3, R03_F)):
+            for seg in hs.needed_segments(band):
+                res = sat.band_res(band)
+                blobs[f"AHI-L1b-FLDK/2026/11/23/0900/HS_H09_20261123_0900_B{band:02d}_FLDK_R{res:02d}_S{seg:02d}10.DAT.bz2"] = make_hsd(band, seg, f)
+        sc = hs.scene(ts + 120)
+        self.assertIsNotNone(sc, hs.last_error)
+        cells = [(i, j) for i in range(sc.ny) for j in range(sc.nx)]
+        ok = [(i, j) for i, j in cells if sc.bt[i][j] is not None]
+        self.assertGreater(len(ok) / len(cells), 0.95)
+        self.assertLess(max(abs(sc.bt[i][j] - BT_F(*sc.latlon(i, j))) for i, j in ok), 2.0)
+        ratios = sorted(sc.r03[i][j] / sc.r01[i][j] for i, j in ok if sc.r01[i][j])
+        self.assertAlmostEqual(ratios[len(ratios) // 2], 1.5, delta=0.1)       # 反照率比 = 設定的 1.5
+        self.assertIsNone(sat.Himawari(bbox=bbox, opener=lambda *a, **k: io.BytesIO(b"<ListBucketResult/>"), grid=FAKE_GRID,
+                                       blob_dir=tempfile.mkdtemp()).scene(ts, tries=1))      # 該時段沒檔 → None,不丟例外
 
 
 # ───────────────────────── 自我學習(以合成資料驗證「真的學得到」) ─────────────────────────
@@ -357,7 +449,7 @@ class Truth(unittest.TestCase):
                             [{"ts": int(e["t0"] + 1800 * i), "site": "alishan_shizhuo", "score": 85.0, "ws": 1.0} for i in range(4)])
 
         class FakeHS:
-            def scene(self, t): return scene()
+            def scene(self, t, want_visible=True): return scene()
         gl = events._event(BALI, "sunset", date(2026, 11, 17), 8)
         rows = truth.build(CFG, now, d, {("alishan_shizhuo", "sea_of_clouds", "2026-11-17"), ("bali", "sunset", "2026-11-17")},
                            FakeHS(), lambda s: 299.0, None)
@@ -372,7 +464,7 @@ class Truth(unittest.TestCase):
 
 # ───────────────────────── 端到端 ─────────────────────────
 class FakeHS:
-    def scene(self, t):
+    def scene(self, t, want_visible=True):
         return scene()
 
 

@@ -1,54 +1,150 @@
-"""Himawari-9 衛星:① nowcast 雲層(紅外亮溫→雲頂高)② 「火燒雲真的發生了嗎」偵測器(可見光紅/藍比)。
-資料:NOAA ISatSS AHI-L1b-FLDK(AWS 公開 S3,10 分鐘,分塊 NetCDF,GOES 式固定網格,衛星 140.7°E)。
-選用依賴:numpy + h5netcdf(或 netCDF4)。缺依賴/抓不到 → 回傳 None,整個功能自動停用,不影響主管線。
-⚠ 我在沙箱內無法連網:固定網格數學、偵測器、雲層估計都用合成資料測過;
-   S3 目錄結構與 tile 檔案格式是依 NOAA/earth2studio 文件的「假設」(標 ASSUMPTION),請先跑 scripts/sat_probe.py 驗證。"""
-import io
+"""Himawari-9 衛星:① nowcast 雲層(紅外亮溫→雲頂高)② 「火燒雲真的發生了嗎」偵測器(可見光紅/藍反照率比)。
+資料:NOAA 在 AWS 公開 S3(noaa-himawari9)的 AHI-L1b-FLDK —— JMA 原生 HSD 格式(bz2 壓縮、每波段切 10 段、10 分鐘一景)。
+目錄 AHI-L1b-FLDK/年/月/日/時分/ 與檔名 HS_H09_日期_時分_Bxx_FLDK_Rxx_Sxxxx.DAT.bz2 已由 sat-probe 在 GitHub 上實測確認。
+HSD 檔頭/校正/地理定位依 JMA「Himawari Standard Data User's Guide」的格式寫成,純標準庫(bz2 + struct),不需 numpy。
+⚠ 檔頭欄位位置我尚未對真實檔案驗證:parse_hsd 逐一檢查區塊編號與長度,對不上會丟出含十六進位傾印的錯誤;
+   請再跑一次 sat-probe,輸出會列出解析出的關鍵檔頭值(波長、CFAC、COFF…)供對照。"""
+import bz2
 import json
 import math
 import os
 import re
+import struct
+import sys
+import tempfile
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from array import array
 
 from . import geo
 from .fetch import log
 
-# ── GOES 式固定網格投影(Himawari-9 ISatSS 用同一套;衛星高度/經度由檔案屬性覆蓋)──
-REQ, RPOL, HSAT, LON0 = 6378137.0, 6356752.31414, 35786023.0, 140.7
+BUCKET = "noaa-himawari9"
+PREFIX = "AHI-L1b-FLDK/{Y}/{m}/{d}/{H}{M}/"                 # 已實測確認
+NS = "{http://s3.amazonaws.com/doc/2006-03-01/}"
+SEGS = 10
+GRID = {20: (5500, 10233137, 2750.5), 10: (11000, 20466275, 5500.5), 5: (22000, 40932549, 11000.5)}   # 全盤行數 / CFAC=LFAC / COFF=LOFF(選段用,實際換算以檔頭為準)
+BLOCKS = ((1, 282), (2, 50), (3, 127), (4, 139), (5, 147), (6, 259), (7, 47))                          # HSD 檔頭前 7 個固定長度區塊
 
 
-def to_scan(lat, lon, h=HSAT, lon0=LON0):
-    """地理座標 → 掃描角 (x, y) 弧度;在衛星背面回傳 None。"""
-    H = h + REQ
-    phi = math.atan((RPOL ** 2 / REQ ** 2) * math.tan(math.radians(lat)))
-    e2 = 1 - RPOL ** 2 / REQ ** 2
-    rc = RPOL / math.sqrt(1 - e2 * math.cos(phi) ** 2)
-    sx = H - rc * math.cos(phi) * math.cos(math.radians(lon - lon0))
-    sy = -rc * math.cos(phi) * math.sin(math.radians(lon - lon0))
-    sz = rc * math.sin(phi)
-    if H * (H - sx) < sy ** 2 + (REQ ** 2 / RPOL ** 2) * sz ** 2:
+def band_res(b):
+    return 5 if b == 3 else 10 if b in (1, 2, 4) else 20
+
+
+class HSDError(Exception):
+    pass
+
+
+def parse_hsd(blob):
+    """HSD 一個波段的一段 → 參數 + 計數值。blob 可為 bz2 或已解壓。"""
+    raw = bz2.decompress(blob) if blob[:3] == b"BZh" else blob
+    offs, off = {}, 0
+    for no, ln in BLOCKS:
+        if off + 3 > len(raw):
+            raise HSDError(f"檔案太短,讀到區塊 {no} 前就結束(長度 {len(raw)})")
+        n, l = struct.unpack_from("<BH", raw, off)
+        if n != no or l != ln:
+            raise HSDError(f"區塊 {no} 對不上:預期長度 {ln},實際 編號={n} 長度={l},offset={off},前 16 bytes={raw[off:off + 16].hex()}")
+        offs[no] = off
+        off += ln
+    e = ">" if raw[5] == 1 else "<"
+    total_hdr, total_data = struct.unpack_from(e + "II", raw, 70)
+    _, _, bits, ncol, nline, _ = struct.unpack_from(e + "BHHHHB", raw, offs[2])
+    (_, _, sub_lon, cfac, lfac, coff, loff, rs, req, rpol, _, _, _, _) = struct.unpack_from(e + "BHdIIffddddddd", raw, offs[3])
+    (_, _, band, wl, _, err, outp, gain, const) = struct.unpack_from(e + "BHHdHHHdd", raw, offs[5])
+    p = {"band": band, "wl": wl, "ncol": ncol, "nline": nline, "bits": bits, "sub_lon": sub_lon, "cfac": cfac, "lfac": lfac,
+         "coff": coff, "loff": loff, "rs": rs, "req": req, "rpol": rpol, "err": err, "out": outp, "gain": gain, "const": const}
+    if band >= 7:
+        p.update(zip(("c0", "c1", "c2", "C0", "C1", "C2", "cc", "h", "k"), struct.unpack_from(e + "9d", raw, offs[5] + 35)))
+    else:
+        p["cprime"] = struct.unpack_from(e + "d", raw, offs[5] + 35)[0]
+    p["nseg"], p["segno"], p["first_line"] = struct.unpack_from(e + "BBH", raw, offs[7] + 3)
+    if bits != 16 or ncol <= 0 or nline <= 0 or len(raw) < total_hdr + ncol * nline * 2:
+        raise HSDError(f"資料區不合理:bits={bits} ncol={ncol} nline={nline} total_hdr={total_hdr} 檔案長度={len(raw)}")
+    counts = array("H")
+    counts.frombytes(raw[total_hdr: total_hdr + ncol * nline * 2])
+    if e == ">" and sys.byteorder == "little":
+        counts.byteswap()
+    p["counts"] = counts
+    return p
+
+
+def geo_to_pix(lat, lon, p):
+    """經緯度 → (column, line)(1 起算);在衛星背面回傳 None。CGMS/HSD 規格公式。"""
+    d2r = math.pi / 180
+    req, rpol, rs = p["req"], p["rpol"], p["rs"]
+    phi = math.atan((rpol ** 2 / req ** 2) * math.tan(lat * d2r))
+    e2 = (req ** 2 - rpol ** 2) / req ** 2
+    re_ = rpol / math.sqrt(1 - e2 * math.cos(phi) ** 2)
+    dl = (lon - p["sub_lon"]) * d2r
+    px, py, pz = re_ * math.cos(phi) * math.cos(dl), re_ * math.cos(phi) * math.sin(dl), re_ * math.sin(phi)
+    r1, r2, r3 = rs - px, -py, pz
+    if px * r1 + py * r2 - pz * r3 <= 0:
         return None
-    return math.asin(-sy / math.sqrt(sx ** 2 + sy ** 2 + sz ** 2)), math.atan(sz / sx)
+    rn = math.sqrt(r1 * r1 + r2 * r2 + r3 * r3)
+    x, y = math.degrees(math.atan(-r2 / r1)), math.degrees(math.asin(-r3 / rn))
+    return (int(math.floor(p["coff"] + x * 2 ** -16 * p["cfac"] + 0.5)),      # COFF/LOFF 為 xxxx.5:整個式子四捨五入成整數像素號
+            int(math.floor(p["loff"] + y * 2 ** -16 * p["lfac"] + 0.5)))
 
 
-def to_geo(x, y, h=HSAT, lon0=LON0):
-    H = h + REQ
-    a = math.sin(x) ** 2 + math.cos(x) ** 2 * (math.cos(y) ** 2 + (REQ ** 2 / RPOL ** 2) * math.sin(y) ** 2)
-    b = -2 * H * math.cos(x) * math.cos(y)
-    c = H ** 2 - REQ ** 2
-    disc = b * b - 4 * a * c
-    if disc < 0:
+def pix_to_geo(col, line, p):
+    x = math.radians((col - p["coff"]) / (2 ** -16 * p["cfac"]))
+    y = math.radians((line - p["loff"]) / (2 ** -16 * p["lfac"]))
+    rs, req, rpol = p["rs"], p["req"], p["rpol"]
+    q = math.cos(y) ** 2 + (req ** 2 / rpol ** 2) * math.sin(y) ** 2
+    sd2 = (rs * math.cos(x) * math.cos(y)) ** 2 - q * (rs ** 2 - req ** 2)
+    if sd2 < 0:
         return None
-    rs = (-b - math.sqrt(disc)) / (2 * a)
-    sx, sy, sz = rs * math.cos(x) * math.cos(y), -rs * math.sin(x), rs * math.cos(x) * math.sin(y)
-    return (math.degrees(math.atan((REQ ** 2 / RPOL ** 2) * sz / math.sqrt((H - sx) ** 2 + sy ** 2))),
-            lon0 - math.degrees(math.atan(sy / (H - sx))))
+    sn = (rs * math.cos(x) * math.cos(y) - math.sqrt(sd2)) / q
+    s1, s2, s3 = rs - sn * math.cos(x) * math.cos(y), sn * math.sin(x) * math.cos(y), -sn * math.sin(y)
+    return (math.degrees(math.atan((req ** 2 / rpol ** 2) * s3 / math.hypot(s1, s2))),
+            math.degrees(math.atan2(s2, s1)) + p["sub_lon"])
 
 
-def planck_bt(rad, fk1, fk2, bc1, bc2):
-    return (fk2 / math.log(fk1 / rad + 1) - bc1) / bc2 if rad and rad > 0 else None
+def convert(p, cnt):
+    """計數值 → 可見光:反照率;紅外:亮度溫度 K。錯誤/掃描區外像素回傳 None。"""
+    if cnt == p["err"] or cnt == p["out"]:
+        return None
+    rad = p["gain"] * cnt + p["const"]
+    if p["band"] <= 6:
+        return p["cprime"] * rad
+    h, c, k = p.get("h") or 6.62606957e-34, p.get("cc") or 2.99792458e8, p.get("k") or 1.3806488e-23
+    lam, I = p["wl"] * 1e-6, rad * 1e6
+    if I <= 0:
+        return None
+    te = (h * c / (k * lam)) / math.log(2 * h * c * c / (lam ** 5 * I) + 1)
+    return p["c0"] + p["c1"] * te + p["c2"] * te * te
+
+
+def build_scene(bands, bbox, step, ts):
+    """bands: {波段: [parse_hsd 結果...]} → Scene(規則經緯網格,最近鄰取樣)。"""
+    lat_min, lon_min, lat_max, lon_max = bbox
+    ny, nx = int(round((lat_max - lat_min) / step)) + 1, int(round((lon_max - lon_min) / step)) + 1
+    out = {}
+    for name, band in (("bt", 13), ("r01", 1), ("r03", 3)):
+        segs = bands.get(band)
+        if not segs:
+            continue
+        p0 = segs[0]
+        by_first = {s["first_line"]: s for s in segs}
+        nl, grid = p0["nline"], []
+        for i in range(ny):
+            row, lat = [], lat_max - i * step
+            for j in range(nx):
+                v = None
+                pix = geo_to_pix(lat, lon_min + j * step, p0)
+                if pix and 1 <= pix[0] <= p0["ncol"]:
+                    s = by_first.get(((pix[1] - 1) // nl) * nl + 1)
+                    if s is not None:
+                        v = convert(s, s["counts"][(pix[1] - s["first_line"]) * s["ncol"] + pix[0] - 1])
+                row.append(v)
+            grid.append(row)
+        out[name] = grid
+    if "bt" not in out:
+        return None
+    return Scene(ts, lat_max, lon_min, step, out["bt"], out.get("r01"), out.get("r03"))
 
 
 # ───────────────────────── 場景(規則經緯網格) ─────────────────────────
@@ -164,12 +260,7 @@ def glow_index(feat, ratio_thr=1.4, norm=0.15, min_cloud=0.1):
     return idx
 
 
-# ───────────────────────── 取檔(AWS S3)與組場景 ─────────────────────────
-BUCKET = "noaa-himawari9"
-PREFIX = "AHI-L1b-FLDK/{Y}/{m}/{d}/{H}{M}/"       # ASSUMPTION:目錄結構請用 sat_probe 驗證,可在 config.sat.prefix 覆蓋
-NS = "{http://s3.amazonaws.com/doc/2006-03-01/}"
-
-
+# ───────────────────────── 取檔(AWS S3) ─────────────────────────
 def s3_list(prefix, bucket=BUCKET, delimiter=None, opener=urllib.request.urlopen):
     keys, token = [], None
     while True:
@@ -187,95 +278,24 @@ def s3_list(prefix, bucket=BUCKET, delimiter=None, opener=urllib.request.urlopen
         token = nt.text
 
 
-def read_tile(blob):
-    """讀一個 tile NetCDF → dict(x, y, rad, [bt 係數])。需要 numpy + h5netcdf/netCDF4;否則 None。"""
-    try:
-        import numpy as np
-    except ImportError:
-        return None
-    try:
-        import h5netcdf
-        ds = h5netcdf.File(io.BytesIO(blob), "r")
-        get = lambda n: ds.variables[n]
-        attrs = lambda v: dict(v.attrs)
-    except ImportError:
-        try:
-            import netCDF4
-            ds = netCDF4.Dataset("tile", memory=blob)
-            get = lambda n: ds.variables[n]
-            attrs = lambda v: {k: v.getncattr(k) for k in v.ncattrs()}
-        except ImportError:
-            return None
-
-    def arr(n):
-        v = get(n)
-        a = np.array(v[:], dtype="float64")
-        at = attrs(v)
-        fill = at.get("_FillValue")
-        if fill is not None:
-            a[a == float(np.asarray(fill).ravel()[0])] = np.nan
-        return a * float(np.asarray(at.get("scale_factor", 1.0)).ravel()[0]) + float(np.asarray(at.get("add_offset", 0.0)).ravel()[0])
-
-    out = {"x": arr("x"), "y": arr("y"), "rad": arr("Rad")}
-    for k in ("planck_fk1", "planck_fk2", "planck_bc1", "planck_bc2"):
-        if k in ds.variables:
-            out[k] = float(np.asarray(get(k)[:]).ravel()[0])
-    try:
-        pv = next(v for n, v in ds.variables.items() if "perspective_point_height" in attrs(v))
-        out["h"], out["lon0"] = float(attrs(pv)["perspective_point_height"]), float(attrs(pv)["longitude_of_projection_origin"])
-    except StopIteration:
-        pass
-    return out
-
-
-def assemble(tiles, bbox, step=0.04, ts=0, kind="bt"):
-    """tiles: read_tile 結果列表 → 規則經緯網格的 2D list(最近鄰)。bbox=(lat_min, lon_min, lat_max, lon_max)。"""
-    import numpy as np
-    lat_min, lon_min, lat_max, lon_max = bbox
-    lats = np.arange(lat_max, lat_min - 1e-9, -step)
-    lons = np.arange(lon_min, lon_max + 1e-9, step)
-    grid = np.full((len(lats), len(lons)), np.nan)
-    h, lon0 = tiles[0].get("h", HSAT), tiles[0].get("lon0", LON0)
-    xs = np.full(grid.shape, np.nan)
-    ys = np.full(grid.shape, np.nan)
-    for i, la in enumerate(lats):
-        for j, lo in enumerate(lons):
-            s = to_scan(float(la), float(lo), h, lon0)
-            if s:
-                xs[i, j], ys[i, j] = s
-    for t in tiles:
-        x, y, rad = t["x"], t["y"], t["rad"]
-        if kind == "bt" and all(k in t for k in ("planck_fk1", "planck_fk2", "planck_bc1", "planck_bc2")):
-            with np.errstate(all="ignore"):
-                rad = (t["planck_fk2"] / np.log(t["planck_fk1"] / rad + 1) - t["planck_bc1"]) / t["planck_bc2"]
-        dx, dy = (x[-1] - x[0]) / (len(x) - 1), (y[-1] - y[0]) / (len(y) - 1)
-        ix, iy = np.rint((xs - x[0]) / dx), np.rint((ys - y[0]) / dy)
-        ok = (ix >= 0) & (ix < len(x)) & (iy >= 0) & (iy < len(y))
-        grid[ok] = rad[iy[ok].astype(int), ix[ok].astype(int)]
-    return [[None if np.isnan(v) else float(v) for v in row] for row in grid], (float(lats[0]), float(lons[0]), step)
+def from_config(cfg, cache_dir):
+    c = (cfg or {}).get("sat") or {}
+    return Himawari(cache_dir, c.get("prefix") or PREFIX, tuple(c["bbox"]) if c.get("bbox") else (20.5, 115.0, 27.5, 125.0),
+                    step=c.get("step", 0.04))
 
 
 class Himawari:
-    """取最近可用的 10 分鐘場景。tile 位置索引只建一次並快取(ASSUMPTION:各波段共用同一組 tile 編號)。"""
-    def __init__(self, cache_dir=".cache/sat", prefix=PREFIX, bbox=(18.0, 112.0, 30.0, 128.0), step=0.04,
-                 opener=urllib.request.urlopen, reader=read_tile, blob_dir=None):
-        """cache_dir 只放小的 tile 位置索引(進 Actions cache);大的 NetCDF 暫存放 blob_dir(/tmp,不進 cache,6 小時後清掉)。"""
-        import tempfile
-        import time
-        self.prefix, self.bbox, self.step, self.opener, self.reader = prefix, bbox, step, opener, reader
+    """取最近可用的 10 分鐘場景。只下載涵蓋 bbox 的那幾段;大檔暫存在 /tmp(6 小時後清除);組好的場景在同一次執行內共用。"""
+    def __init__(self, cache_dir=".cache/sat", prefix=PREFIX, bbox=(20.5, 115.0, 27.5, 125.0), step=0.04,
+                 opener=urllib.request.urlopen, grid=None, blob_dir=None):
+        self.prefix, self.bbox, self.step, self.opener, self.grid = prefix, bbox, step, opener, grid or GRID
         self.dir = blob_dir or os.path.join(tempfile.gettempdir(), "fcf_sat")
-        os.makedirs(cache_dir, exist_ok=True)
         os.makedirs(self.dir, exist_ok=True)
         for f in os.listdir(self.dir):
             fp = os.path.join(self.dir, f)
             if os.path.isfile(fp) and time.time() - os.path.getmtime(fp) > 6 * 3600:
                 os.remove(fp)
-        self.index_path = os.path.join(cache_dir, "tiles.json")
-        try:
-            with open(self.index_path, encoding="utf-8") as f:
-                self.index = json.load(f)
-        except (OSError, ValueError):
-            self.index = {}
+        self._scenes, self.last_error = {}, None
 
     def _slot_keys(self, ts):
         from datetime import datetime, timezone
@@ -288,63 +308,54 @@ class Himawari:
         if os.path.exists(p):
             with open(p, "rb") as f:
                 return f.read()
-        with self.opener(f"https://{BUCKET}.s3.amazonaws.com/" + urllib.parse.quote(key), timeout=120) as r:
+        with self.opener(f"https://{BUCKET}.s3.amazonaws.com/" + urllib.parse.quote(key), timeout=180) as r:
             b = r.read()
         with open(p, "wb") as f:
             f.write(b)
         return b
 
-    def _tiles_for(self, keys, band, need):
-        """need=(xmin,xmax,ymin,ymax) 掃描角範圍;索引未知的 tile 先讀 x/y 範圍再快取。"""
-        sel = []
-        for k in keys:
-            m = re.search(rf"-B{band:02d}[-_].*?-T(\d+)[_.]", k) or re.search(rf"B{band:02d}.*?T(\d+)", k)
-            if not m:
-                continue
-            tid = m.group(1)
-            ext = self.index.get(tid)
-            if ext is None:
-                t = self.reader(self._blob(k))
-                if not t:
-                    return None
-                ext = [float(t["x"].min()), float(t["x"].max()), float(t["y"].min()), float(t["y"].max())]
-                self.index[tid] = ext
-            if ext[0] <= need[1] and ext[1] >= need[0] and ext[2] <= need[3] and ext[3] >= need[2]:
-                sel.append(k)
-        return sel
+    def needed_segments(self, band):
+        """bbox 落在哪幾段:用規格預設值估線號(實際換算用檔頭)。"""
+        total, cfac, coff = self.grid[band_res(band)]
+        nl = total // SEGS
+        p = {"sub_lon": 140.7, "cfac": cfac, "lfac": cfac, "coff": coff, "loff": coff, "rs": 42164.0, "req": 6378.137, "rpol": 6356.7523}
+        la0, lo0, la1, lo1 = self.bbox
+        lines = [pix[1] for a in range(5) for b in range(5)
+                 if (pix := geo_to_pix(la0 + (la1 - la0) * a / 4, lo0 + (lo1 - lo0) * b / 4, p))]
+        if not lines:
+            return []
+        return list(range((min(lines) - 1) // nl + 1, (max(lines) - 1) // nl + 2))
 
     def scene(self, ts, want_visible=True, tries=3):
-        try:
-            import numpy  # noqa: F401
-        except ImportError:
-            return None
-        la0, lo0, la1, lo1 = self.bbox
-        sc = [to_scan(la, lo) for la in (la0, la1) for lo in (lo0, lo1)]
-        sc = [s for s in sc if s]
-        if not sc:
-            return None
-        need = (min(s[0] for s in sc), max(s[0] for s in sc), min(s[1] for s in sc), max(s[1] for s in sc))
+        slot0 = int(ts // 600 * 600)
         for k in range(tries):
-            t = ts - k * 600
+            t = slot0 - k * 600
+            ck = (t, want_visible)
+            if ck in self._scenes:
+                return self._scenes[ck]
             try:
                 keys = self._slot_keys(t)
                 if not keys:
-                    continue
-                out = {}
-                for name, band, kind in (("bt", 13, "bt"), ("r01", 1, "rad"), ("r03", 3, "rad")):
-                    if name != "bt" and not want_visible:
-                        continue
-                    sel = self._tiles_for(keys, band, need)
-                    tiles = [self.reader(self._blob(x)) for x in (sel or [])]
-                    tiles = [x for x in tiles if x]
-                    if not tiles:
-                        raise RuntimeError(f"band {band} no tiles")
-                    out[name], (lat_max, lon_min, step) = assemble(tiles, self.bbox, self.step, t, kind)
-                with open(self.index_path, "w", encoding="utf-8") as f:
-                    json.dump(self.index, f)
-                return Scene(t, lat_max, lon_min, step, out["bt"], out.get("r01"), out.get("r03"))
+                    raise RuntimeError("該時段目錄沒有檔案")
+                idx = {}
+                for key in keys:
+                    m = re.search(r"_B(\d\d)_FLDK_R\d\d_S(\d\d)\d\d\.DAT", key)
+                    if m:
+                        idx[(int(m.group(1)), int(m.group(2)))] = key
+                bands = {}
+                for band in ((13, 1, 3) if want_visible else (13,)):
+                    segs = self.needed_segments(band)
+                    miss = [s for s in segs if (band, s) not in idx]
+                    if not segs or miss:
+                        raise RuntimeError(f"波段 {band} 缺檔(需要段 {segs},缺 {miss})")
+                    bands[band] = [parse_hsd(self._blob(idx[(band, s)])) for s in segs]
+                sc = build_scene(bands, self.bbox, self.step, t)
+                self._scenes[ck] = sc
+                if sc:
+                    return sc
             except Exception as e:
-                log(f"[sat] slot {t} failed: {e}")
+                self.last_error = f"{type(e).__name__}: {e}"
+                log(f"[sat] slot {t} failed: {self.last_error}")
         return None
 
 

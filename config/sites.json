@@ -194,7 +194,14 @@
   },
   "sat": {
     "enabled": true,
-    "prefix": null
+    "prefix": null,
+    "bbox": [
+      20.5,
+      115.0,
+      27.5,
+      125.0
+    ],
+    "step": 0.04
   },
   "truth": {
     "sea_t": 60

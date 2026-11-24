@@ -1,44 +1,56 @@
-"""衛星模組驗證(上線前請先跑一次;GitHub 上可用 sat-probe workflow 一鍵執行)。
-確認:S3 目錄結構、依假設的前綴能不能列出檔案、各波段/tile 的檔名、能否組出場景,並輸出預覽圖讓人眼檢查。
-用法: PYTHONPATH=src python scripts/sat_probe.py [YYYY-MM-DDTHH:MMZ]   (需要 pip install -r requirements-sat.txt)"""
+"""衛星模組驗證(GitHub 上用 sat-probe workflow 一鍵執行;或本機 PYTHONPATH=src python scripts/sat_probe.py [UTC 時間])。
+依序確認:S3 目錄 → 檔名 → HSD 檔頭(逐區塊檢查)→ 關鍵檔頭值是否合理 → 台北附近像素值 → 組場景 → 預覽圖與偵測器特徵。
+請把完整輸出貼回來:任何一步 ✗ 都會附上足以修正的資訊。"""
+import json
 import re
 import sys
 import time
-from collections import Counter
 from datetime import datetime, timezone
 
 from fcf import sat
-from fcf.sat import PREFIX, Himawari, s3_list
 
 ts = datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).timestamp() if len(sys.argv) > 1 else time.time() - 3600
-print("1) bucket 根目錄:", [p for p in s3_list("", delimiter="/")][:30])
-top = [p for p in s3_list("AHI", delimiter="/") if p.endswith("/")]
-print("2) AHI 相關頂層目錄:", top)
-node, depth = next((p for p in top if "L1b-FLDK" in p), top[0] if top else None), 0
-print("3) 逐層往下(各層取字典序最後 = 最新),請對照 config.sat.prefix 的日期層級:")
-while node and depth < 7:
-    kids = s3_list(node, delimiter="/")
-    dirs = sorted(k for k in kids if k.endswith("/") and k != node)
-    files = [k for k in kids if not k.endswith("/")]
-    print(f"   {node}  子目錄(後3)={[d[len(node):] for d in dirs[-3:]]}  檔案(前2)={[f[len(node):] for f in files[:2]]}")
-    if not dirs:
-        break
-    node, depth = dirs[-1], depth + 1
-hs = Himawari()
+try:
+    cfg = json.load(open("config/sites.json", encoding="utf-8"))
+except OSError:
+    cfg = {}
+hs = sat.from_config(cfg, ".cache/sat")
+print("1) bucket 根目錄:", sat.s3_list("", delimiter="/")[:30])
 keys = hs._slot_keys(ts)
-print(f"4) 依假設的前綴 {PREFIX} 列出 {len(keys)} 個檔;範例:", keys[:2])
-if keys:
-    bands = Counter(m.group(1) for k in keys if (m := re.search(r"-B(\d\d)[-_]", k)))
-    tiles = {b: {m.group(1) for k in keys if f"-B{b}" in k and (m := re.search(r"-T(\d+)[_.]", k))} for b in ("01", "03", "13")}
-    print("   各波段檔案數:", dict(bands))
-    print("   B01/B03/B13 的 tile 編號是否相同(程式假設相同):", tiles["01"] == tiles["03"] == tiles["13"], {b: len(v) for b, v in tiles.items()})
-else:
-    print("   ✗ 找不到檔案 → 依上面 3) 的實際結構調整 config/sites.json 的 sat.prefix(日期層級用 {Y}/{m}/{d}/{H}{M} 這類佔位符)")
-    sys.exit(0)
-sc = hs.scene(ts)
-print("5) 場景:", None if sc is None else f"{sc.ny}x{sc.nx}, ts={sc.ts}")
+print(f"2) 前綴 {hs.prefix} 列出 {len(keys)} 個檔;範例:", keys[:2])
+idx = {}
+for k in keys:
+    m = re.search(r"_B(\d\d)_FLDK_R(\d\d)_S(\d\d)(\d\d)\.DAT", k)
+    if m:
+        idx[(int(m.group(1)), int(m.group(3)))] = k
+print("   可辨認的 (波段,段) 組合數:", len(idx), "(預期 16 波段 × 10 段 = 160)")
+ok = bool(idx)
+for band in (13, 1, 3):
+    segs = hs.needed_segments(band)
+    print(f"3) 波段 B{band:02d}:bbox {hs.bbox} 預期需要的段 = {segs}")
+    if not segs or (band, segs[0]) not in idx:
+        print("   ✗ 找不到對應檔案"); ok = False; continue
+    t0 = time.time()
+    try:
+        p = sat.parse_hsd(hs._blob(idx[(band, segs[0])]))
+    except Exception as e:
+        print(f"   ✗ HSD 解析失敗:{type(e).__name__}: {e}"); ok = False; continue
+    keep = ("band", "wl", "ncol", "nline", "bits", "sub_lon", "cfac", "lfac", "coff", "loff", "rs", "req", "rpol", "gain", "const", "err", "out", "first_line", "nseg", "segno")
+    print("   檔頭:", {k: (round(p[k], 4) if isinstance(p[k], float) else p[k]) for k in keep}, f"(解析 {time.time() - t0:.1f}s)")
+    print("   ", {k: round(p[k], 6) for k in ("c0", "c1", "c2", "h", "k", "cc") if k in p} or {"cprime": p.get("cprime")})
+    exp = {13: 10.4, 1: 0.47, 3: 0.64}[band]
+    print(f"   合理性:波長 {p['wl']:.3f}µm(預期≈{exp});sub_lon {p['sub_lon']:.2f}(預期≈140.7);ncol {p['ncol']};segno/nseg {p['segno']}/{p['nseg']}")
+    pix = sat.geo_to_pix(25.05, 121.5, p)
+    if pix:
+        row = pix[1] - p["first_line"]
+        inside = 0 <= row < p["nline"] and 1 <= pix[0] <= p["ncol"]
+        v = sat.convert(p, p["counts"][row * p["ncol"] + pix[0] - 1]) if inside else None
+        print(f"   台北 (25.05N,121.5E) → col/line={pix},在本段內={inside},換算值={None if v is None else round(v, 3)}"
+              + ("  (紅外:應落在 ~250–305 K)" if band == 13 else "  (可見光反照率:日落時台灣在晨昏線,可能很小)"))
+sc = hs.scene(ts) if ok else None
+print("4) 場景:", None if sc is None else f"{sc.ny}x{sc.nx}, ts={sc.ts}", "" if sc else f"最後錯誤:{hs.last_error}")
 if sc:
+    flat = [v for r in sc.bt for v in r if v is not None]
+    print(f"   紅外亮溫有值格數 {len(flat)}/{sc.ny * sc.nx};範圍 {min(flat):.1f}–{max(flat):.1f} K")
     print("   預覽圖:", sat.preview(sc, ".cache/sat/probe.png"))
     print("   偵測器特徵(八里,朝西):", sat.glow_features(sc, {"lat": 25.15, "lon": 121.43}, 250.0, 299.0))
-else:
-    print("   ✗ 組不出場景 → 看上方 [sat] 開頭的錯誤訊息(tile 讀取 / 缺依賴 / 波段無 tile)")

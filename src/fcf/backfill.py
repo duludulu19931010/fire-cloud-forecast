@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from . import events as ev, learn, scoring, store, truth
 from .fetch import V_PATH, OpenMeteo, log
-from .sat import Himawari, PREFIX
+from .sat import from_config
 
 V_BACK = V_PATH + ["precipitation", "relative_humidity_2m", "temperature_2m", "visibility"]
 
@@ -66,7 +66,7 @@ def main(argv=None):
     cfg = store.load_json(a.config)
     now = time.time()
     om = OpenMeteo(a.cache, api_key=os.environ.get("OPEN_METEO_API_KEY"), clock=lambda: now)
-    hs = None if a.no_truth else Himawari(os.path.join(os.path.dirname(a.cache) or ".cache", "sat"), (cfg.get("sat") or {}).get("prefix") or PREFIX)
+    hs = None if a.no_truth else from_config(cfg, os.path.join(os.path.dirname(a.cache) or ".cache", "sat"))
     calib = store.load_json(os.path.join(a.out, "model", "calibration.json"), {})
     nh, nt = run(cfg, now, om, a.out, a.days, hs, calib)
     om.flush()

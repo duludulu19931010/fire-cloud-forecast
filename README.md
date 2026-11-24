@@ -1,7 +1,7 @@
 # fire-cloud-forecast v2
 
 每小時自動更新「未來 24 小時」的 **日落火燒雲 / 日出朝燒 / 雲海 / 琉璃光** 發生機率與時間點,
-並在同一個 workflow 內完成 **以「事件有沒有真的發生」為準的回測 + 多重自我校正**。核心純標準庫;衛星功能選用 numpy + h5netcdf。
+並在同一個 workflow 內完成 **以「事件有沒有真的發生」為準的回測 + 多重自我校正**。全部純標準庫(含衛星 HSD 解析),不需任何第三方套件。
 
 ## 架構
 ```
@@ -26,7 +26,7 @@
 | Open-Meteo Previous Runs | 冷啟動:還原「N 天前發布的預報」 | 免金鑰 |
 | Meteoblue | 第 4 個共識成員(clouds-3h + basic-1h,內插為逐時) | `METEOBLUE_API_KEY`(Free API 試用 1 年) |
 | 氣象署開放資料 | 山上/谷地測站 → 雲海 nowcast **與雲海/琉璃光真值** | `CWA_API_KEY`(免費) |
-| Himawari-9(AWS) | 雲層 nowcast + **火燒雲真值**(紅光雲偵測) | numpy + h5netcdf;先跑 `scripts/sat_probe.py` |
+| Himawari-9(AWS) | 雲層 nowcast + **火燒雲真值**(紅光雲偵測) | 免金鑰;JMA 原生 HSD(bz2),只下載涵蓋 bbox 的 1~3 段;先跑 `sat-probe` |
 
 ## 評分模型(五個環節 → 可計算特徵)
 太陽低角度(天文)→ **光路**(球面幾何:太陽俯角 δ 時,距離 x 的雲要高於 R·(δ−x/R)²/2 才被照亮;光線沿途最低高度決定穿過哪一層雲;低雲牆擋不到高層雲的光,中層雲牆才會)
@@ -60,7 +60,7 @@
 ## 部署
 1. 推上 `main`;Settings → Actions → Workflow permissions 選 **Read and write**。
 2. Secrets(皆選填):`CWA_API_KEY`、`METEOBLUE_API_KEY`、`OPEN_METEO_API_KEY`。**沒有 CWA 金鑰 → 雲海/琉璃光沒有觀測型真值,只能靠人工回報學習。**
-3. 先驗證衛星:Actions → `sat-probe` → Run workflow(或本機 `PYTHONPATH=src python scripts/sat_probe.py`)(需 `pip install -r requirements-sat.txt`):確認 S3 目錄、tile 檔名、組出的場景與 `.cache/sat/probe.png`;人眼確認「雲是雲、紅光雲在太陽方向」。目錄結構不同就改 `config.sat.prefix`。
+3. 先驗證衛星:Actions → `sat-probe` → Run workflow(或本機 `PYTHONPATH=src python scripts/sat_probe.py`):逐步印出 S3 目錄、HSD 檔頭(逐區塊檢查)、關鍵檔頭值是否合理、台北像素值、組出的場景與預覽圖。**S3 目錄層級已用 sat-probe 實測確認(`AHI-L1b-FLDK/年/月/日/時分/`);HSD 檔頭欄位位置與像素定位仍待對真實檔案驗證**,請把輸出貼回來。
 4. Actions → `hourly-forecast` → Run workflow,看 log 有沒有 `[fetch]`/`[meteoblue]`/`[sat]` 失敗訊息。
 5. (建議)Actions → `backfill-cold-start` → days=30。
 6. Settings → Pages → Source 選 `data` 分支。網頁:`https://<user>.github.io/<repo>/`(`web/index.html`,每小時由 workflow 複製到 data 分支);
@@ -73,8 +73,8 @@
 已用真實管線輸出 + 最小假 DOM 跑過渲染與互動邏輯;**尚未在真實瀏覽器/手機上目視驗證版面**。
 
 ## 已知限制(請先讀)
-- **我在沙箱無法連外網**:所有「真實連線」都沒測過——Open-Meteo 新端點(集合/空品/Previous Runs)、Meteoblue 欄位名、CWA 欄位、Himawari S3 目錄與 NetCDF 格式。
-  已測的是:解析函式(用合成回應)、固定網格投影往返、tile 組裝、偵測器、全部學習機制、端到端流程(假衛星場景 + 合成氣象資料)。
+- **我在沙箱無法連外網**:所有「真實連線」都沒測過——Open-Meteo 新端點(集合/空品/Previous Runs)、Meteoblue 欄位名、CWA 欄位、Himawari 的 HSD 檔頭解析與像素定位(S3 目錄與檔名已由 sat-probe 實測確認)。
+  已測的是:解析函式(用合成回應)、HSD 檔頭/校正/定位(用依規格寫出的合成 HSD 檔,含假 S3 目錄的完整取檔流程)、偵測器、全部學習機制、端到端流程(假衛星場景 + 合成氣象資料)。
 - Meteoblue 免費版 clouds 套件只有 ≥3 小時解析度;欄位名稱採容錯解析,對不上會把實際 keys 印到 log。
 - 衛星偵測是**代理指標**:衛星從上往下看被紅光照亮的雲頂,不等於地面看到的雲底;閾值是先驗,必須靠人工回報校準(機制已內建)。
 - 雲海/琉璃光的真值只有測站;測站配不到「山上+谷地」一對就沒有真值。ECMWF 集合預報只對火燒雲做。
@@ -84,7 +84,7 @@
 
 ## 開發
 ```
-pip install numpy                      # 僅測試需要(衛星組裝測試)
+pip install numpy                      # 目前非必要(requirements-sat.txt 與 CI 保留它只為不必改 workflow)
 PYTHONPATH=src python -m unittest discover -s tests -v
 PYTHONPATH=src python -m fcf.run --mock --out /tmp/out     # 不連網乾跑
 ```

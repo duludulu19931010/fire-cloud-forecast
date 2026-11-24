@@ -115,7 +115,7 @@ def run(cfg, now, om, env=None, calib=None, hs=None, out=None):
     sc_cfg = cfg.get("sat") or {}
     if hs is not None and sc_cfg.get("enabled", True) and any(
             e["kind"] in ev.GLOW_SPAN and e["ref"] - now <= 3.5 * 3600 for e in planned):
-        scene = hs.scene(now - 900)
+        scene = hs.scene(now - 900, want_visible=False)
 
     results, skipped = {s["id"]: [] for s in cfg["sites"]}, 0
     glow_done = []
@@ -261,7 +261,7 @@ def main(argv=None, hs=None):
         om = OpenMeteo(a.cache, api_key=env.get("OPEN_METEO_API_KEY"), max_age=cfg.get("forecast_max_age_h", 3) * 3600,
                        clock=lambda: now)
         if hs is None and (cfg.get("sat") or {}).get("enabled", True):
-            hs = sat.Himawari(os.path.join(os.path.dirname(a.cache) or ".cache", "sat"), (cfg.get("sat") or {}).get("prefix") or sat.PREFIX)
+            hs = sat.from_config(cfg, os.path.join(os.path.dirname(a.cache) or ".cache", "sat"))
     result, events_all, charts, ctx, stations = run(cfg, now, om, env, calib, hs, a.out)
     if not events_all:
         log("no events produced (all fetches failed?) — keeping previous outputs")

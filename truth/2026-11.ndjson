@@ -1,1 +1,4 @@
 {"site":"alishan_xiding","kind":"sea_of_clouds","date":"2026-11-24","ts":1795514332,"src":"cwa","y":1,"ev":{"n":1,"n_ok":1,"hits":1,"max":97.8}}
+{"site":"alishan_shizhuo","kind":"ryuli","date":"2026-11-24","ts":1795580137,"src":"cwa","y":0,"ev":{"n":1,"n_ok":1,"hits":0,"max":0.0}}
+{"site":"alishan_xiding","kind":"ryuli","date":"2026-11-24","ts":1795580137,"src":"cwa","y":0,"ev":{"n":1,"n_ok":1,"hits":0,"max":0.0}}
+{"site":"qingjing","kind":"ryuli","date":"2026-11-24","ts":1795580137,"src":"cwa","y":0,"ev":{"n":1,"n_ok":1,"hits":0,"max":0.0}}

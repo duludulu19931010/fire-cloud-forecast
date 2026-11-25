@@ -1,6 +1,6 @@
 {
  "sunset": {
-  "snapshots": 3,
+  "snapshots": 4,
   "events": 0,
   "by_src": {
    "human": 0,
@@ -46,7 +46,7 @@
   ]
  },
  "ryuli": {
-  "snapshots": 3,
+  "snapshots": 6,
   "events": 3,
   "by_src": {
    "human": 0,

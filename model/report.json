@@ -11,7 +11,7 @@
   "decision": "樣本不足(0/20 場有真值),使用先驗"
  },
  "sunrise": {
-  "snapshots": 7,
+  "snapshots": 10,
   "events": 0,
   "by_src": {
    "human": 0,
@@ -22,7 +22,7 @@
   "decision": "樣本不足(0/20 場有真值),使用先驗"
  },
  "sea_of_clouds": {
-  "snapshots": 11,
+  "snapshots": 14,
   "events": 3,
   "by_src": {
    "human": 0,
@@ -46,7 +46,7 @@
   ]
  },
  "ryuli": {
-  "snapshots": 6,
+  "snapshots": 9,
   "events": 6,
   "by_src": {
    "human": 0,

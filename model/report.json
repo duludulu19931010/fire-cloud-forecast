@@ -1,16 +1,16 @@
 {
  "sunset": {
   "snapshots": 16,
-  "events": 8,
+  "events": 10,
   "by_src": {
    "human": 0,
-   "sat": 8,
+   "sat": 10,
    "cwa": 0
   },
   "base_rate": 0.0,
-  "decision": "樣本不足(8/20 場有真值),使用先驗",
+  "decision": "樣本不足(10/20 場有真值),使用先驗",
   "oos": false,
-  "brier": 0.0134,
+  "brier": 0.0296,
   "BSS": null,
   "AUC": null,
   "by_lead": {
@@ -29,6 +29,12 @@
     "bin": "0-20%",
     "n": 9,
     "mean_p": 0.115,
+    "obs": 0.0
+   },
+   {
+    "bin": "20-40%",
+    "n": 2,
+    "mean_p": 0.306,
     "obs": 0.0
    }
   ]
@@ -58,7 +64,7 @@
   ]
  },
  "sea_of_clouds": {
-  "snapshots": 15,
+  "snapshots": 18,
   "events": 3,
   "by_src": {
    "human": 0,
@@ -133,6 +139,6 @@
    "cwa": 0.6
   },
   "human_labels": 0,
-  "truth_rows": 172
+  "truth_rows": 174
  }
 }

@@ -57,3 +57,8 @@
 {"ts":1795809584,"site":"qingjing","score":59.4,"ws":0.3,"rh_v":97.0,"rh_p":89.0,"st":["C0I390","C0I010"]}
 {"ts":1795809584,"site":"taipingshan","score":65.6,"ws":2.2,"rh_v":100.0,"rh_p":90.0,"st":["C0UA30","C0UB90"]}
 {"ts":1795809584,"site":"hehuan_wuling","score":0.0,"ws":3.3,"rh_v":99.0,"rh_p":99.0,"st":["C2H9L0","C0H9C0"]}
+{"ts":1795833864,"site":"alishan_shizhuo","score":0.0,"ws":1.5,"rh_v":70.0,"rh_p":57.0,"st":["C0M820","C2M930"]}
+{"ts":1795833864,"site":"alishan_xiding","score":0.0,"ws":1.5,"rh_v":70.0,"rh_p":57.0,"st":["C0M720","C2M930"]}
+{"ts":1795833864,"site":"qingjing","score":0.0,"ws":0.4,"rh_v":66.0,"rh_p":73.0,"st":["C0I390","C0I010"]}
+{"ts":1795833864,"site":"taipingshan","score":0.0,"ws":7.4,"rh_v":58.0,"rh_p":52.0,"st":["C0UA30","C0UB90"]}
+{"ts":1795833864,"site":"hehuan_wuling","score":0.0,"ws":4.4,"rh_v":51.0,"rh_p":83.0,"st":["C2H9L0","C0H9C0"]}

@@ -1,6 +1,6 @@
 {
  "sunset": {
-  "snapshots": 9,
+  "snapshots": 11,
   "events": 0,
   "by_src": {
    "human": 0,
@@ -47,24 +47,34 @@
  },
  "ryuli": {
   "snapshots": 10,
-  "events": 8,
+  "events": 9,
   "by_src": {
    "human": 0,
    "sat": 0,
-   "cwa": 8
+   "cwa": 9
   },
   "base_rate": 0.0,
-  "decision": "樣本不足(8/20 場有真值),使用先驗",
+  "decision": "樣本不足(9/20 場有真值),使用先驗",
   "oos": false,
-  "brier": 0.0194,
+  "brier": 0.0196,
   "BSS": null,
   "AUC": null,
-  "by_lead": {},
+  "by_lead": {
+   "1": {
+    "n": 5,
+    "mean_p": 0.127,
+    "obs": 0.0,
+    "brier": 0.0213,
+    "POD": null,
+    "FAR": null,
+    "CSI": null
+   }
+  },
   "reliability": [
    {
     "bin": "0-20%",
-    "n": 6,
-    "mean_p": 0.107,
+    "n": 8,
+    "mean_p": 0.114,
     "obs": 0.0
    },
    {
@@ -87,6 +97,6 @@
    "cwa": 0.6
   },
   "human_labels": 0,
-  "truth_rows": 11
+  "truth_rows": 12
  }
 }

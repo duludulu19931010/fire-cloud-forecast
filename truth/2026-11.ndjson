@@ -9,3 +9,4 @@
 {"site":"taipingshan","kind":"sea_of_clouds","date":"2026-11-26","ts":1795681644,"src":"cwa","y":0,"ev":{"n":1,"n_ok":1,"hits":0,"max":55.2}}
 {"site":"alishan_shizhuo","kind":"ryuli","date":"2026-11-26","ts":1795745679,"src":"cwa","y":0,"ev":{"n":1,"n_ok":1,"hits":0,"max":0.0}}
 {"site":"qingjing","kind":"ryuli","date":"2026-11-26","ts":1795745679,"src":"cwa","y":0,"ev":{"n":1,"n_ok":1,"hits":0,"max":0.0}}
+{"site":"qingjing","kind":"ryuli","date":"2026-11-27","ts":1795833864,"src":"cwa","y":0,"ev":{"n":2,"n_ok":2,"hits":0,"max":59.4}}

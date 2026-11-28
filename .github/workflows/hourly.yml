@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  pages: write          # 用來主動請求 Pages 建置(GITHUB_TOKEN 的推送不會自動觸發)
 concurrency:
   group: data-branch
   cancel-in-progress: false
@@ -37,6 +38,12 @@ jobs:
           OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}    # 選填:共享 IP 被限流或商用時
         run: python -m fcf.run --config config/sites.json --out data --cache .cache/om.json
       - name: Ship dashboard page (web/index.html → data 分支根目錄)
-        run: cp web/index.html data/index.html
+        run: |
+          cp web/index.html data/index.html
+          touch data/.nojekyll          # 純靜態檔,不要讓 Jekyll 處理(較快,也避免 .md/.json 被動到)
       - name: Publish to data branch
         run: bash scripts/publish_data.sh forecast
+      - name: Request GitHub Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "::warning::Pages 建置請求失敗(Settings → Pages 的來源要先設成 data 分支 / root)"

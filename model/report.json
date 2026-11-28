@@ -1,25 +1,61 @@
 {
  "sunset": {
-  "snapshots": 11,
-  "events": 0,
+  "snapshots": 16,
+  "events": 8,
   "by_src": {
    "human": 0,
-   "sat": 0,
+   "sat": 8,
    "cwa": 0
   },
-  "base_rate": null,
-  "decision": "樣本不足(0/20 場有真值),使用先驗"
+  "base_rate": 0.0,
+  "decision": "樣本不足(8/20 場有真值),使用先驗",
+  "oos": false,
+  "brier": 0.0134,
+  "BSS": null,
+  "AUC": null,
+  "by_lead": {
+   "1": {
+    "n": 5,
+    "mean_p": 0.129,
+    "obs": 0.0,
+    "brier": 0.0167,
+    "POD": null,
+    "FAR": null,
+    "CSI": null
+   }
+  },
+  "reliability": [
+   {
+    "bin": "0-20%",
+    "n": 9,
+    "mean_p": 0.115,
+    "obs": 0.0
+   }
+  ]
  },
  "sunrise": {
   "snapshots": 10,
-  "events": 0,
+  "events": 6,
   "by_src": {
    "human": 0,
-   "sat": 0,
+   "sat": 6,
    "cwa": 0
   },
-  "base_rate": null,
-  "decision": "樣本不足(0/20 場有真值),使用先驗"
+  "base_rate": 0.0,
+  "decision": "樣本不足(6/20 場有真值),使用先驗",
+  "oos": false,
+  "brier": 0.01,
+  "BSS": null,
+  "AUC": null,
+  "by_lead": {},
+  "reliability": [
+   {
+    "bin": "0-20%",
+    "n": 6,
+    "mean_p": 0.1,
+    "obs": 0.0
+   }
+  ]
  },
  "sea_of_clouds": {
   "snapshots": 14,
@@ -97,6 +133,6 @@
    "cwa": 0.6
   },
   "human_labels": 0,
-  "truth_rows": 12
+  "truth_rows": 26
  }
 }

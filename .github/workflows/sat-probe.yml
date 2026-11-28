@@ -26,4 +26,5 @@ jobs:
         with:
           name: sat-probe
           path: .cache/sat/probe.png
-          if-no-files-found: ignore
+          include-hidden-files: true      # .cache 是點開頭的資料夾,upload-artifact 預設會略過隱藏檔
+          if-no-files-found: warn

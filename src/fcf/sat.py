@@ -214,48 +214,68 @@ def nowcast_covers(sc, site, az, sfc_k, us=None):
 
 
 # ───────────────────────── 火燒雲偵測器 ─────────────────────────
-THRS = (1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2.0)
-DETECTOR_PRIOR = {"ratio_thr": 1.4, "tau": 0.4}
+# 黃昏時可見光訊號只比零輻射高幾個計數(B01/B03 一個計數 ≈ 0.0006 反照率),所以:
+#  ① 「被照亮」用「絕對」反照率門檻(不是相對於扇形亮度,否則整個扇形都暗時雜訊會被當成訊號)
+#  ② 紅/藍比的分母設下限(藍光最先消失,B01 常掉到零 → 比值無限大)
+#  ③ 把「亮度門檻 × 紅度門檻」整張表都存進證據,日後門檻被學習修正時不必重抓衛星
+THRS = (1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2.0, 2.5, 3.0)           # 紅/藍反照率比門檻
+LIT_LEVELS = (0.002, 0.004, 0.008, 0.016, 0.032, 0.064)             # 「被照亮」的紅光反照率下限
+LIT_DEFAULT = 0.008                                                 # ≈ 14 個計數,比值相對誤差約 ±7%
+RATIO_FLOOR = 0.0012                                                # ≈ 2 個計數
+DETECTOR_PRIOR = {"ratio_thr": 1.4, "tau": 0.4, "lit_min": LIT_DEFAULT}
 
 
 def glow_features(sc, site, az, sfc_k, half=30.0, rmin=20.0, rmax=220.0):
-    """太陽方向扇形內「被紅光照亮的雲」比例 + 頭頂低雲比例。紅度 = 紅(0.64µm)/藍(0.47µm) 輻射比。"""
+    """太陽方向扇形內「被紅光照亮的雲」比例 + 頭頂低雲比例。紅度 = 紅(0.64µm)/藍(0.47µm) 反照率比(中性白雲≈1)。"""
     if sc.r01 is None or sc.r03 is None:
         return None
     cells = [(i, j) for i, j in _cells_within(sc, site["lat"], site["lon"], rmin, rmax, az, half)
              if sc.bt[i][j] is not None and sc.r03[i][j] is not None and sc.r01[i][j] is not None]
     if len(cells) < 30:
         return None
-    v = sorted(sc.r03[i][j] for i, j in cells)
-    floor = 0.12 * v[int(0.95 * (len(v) - 1))]                  # 太陽快落時訊號很弱:門檻相對於扇形內的亮度
-    red = {t: 0 for t in THRS}
-    cloud = lit = 0
+    red = {L: {t: 0 for t in THRS} for L in LIT_LEVELS}
+    lit = {L: 0 for L in LIT_LEVELS}
+    cloud = 0
     for i, j in cells:
         if height_km(sc.bt[i][j], sfc_k) < 0.5:
             continue
         cloud += 1
         a, b = sc.r03[i][j], sc.r01[i][j]
-        if (a + b) / 2 < floor:
+        if a < LIT_LEVELS[0]:
             continue
-        lit += 1
-        ratio = a / max(b, 1e-6)
-        for t in THRS:
-            if ratio >= t:
-                red[t] += 1
+        ratio = a / max(b, RATIO_FLOOR)
+        for L in LIT_LEVELS:
+            if a < L:
+                break
+            lit[L] += 1
+            for t in THRS:
+                if ratio >= t:
+                    red[L][t] += 1
     over = [(i, j) for i, j in _cells_within(sc, site["lat"], site["lon"], 0, 15) if sc.bt[i][j] is not None]
     low = sum(1 for i, j in over if 0.5 <= height_km(sc.bt[i][j], sfc_k) < 2.5)
     n = len(cells)
-    return {"n": n, "cloud_frac": round(cloud / n, 3), "lit_frac": round(lit / n, 3),
-            "red_frac": {str(t): round(red[t] / n, 4) for t in THRS},
+    return {"n": n, "cloud_frac": round(cloud / n, 3), "lit_frac": round(lit[LIT_DEFAULT] / n, 4),
+            "red_frac": {str(t): round(red[LIT_DEFAULT][t] / n, 4) for t in THRS},
+            "red_by_lit": {str(L): {str(t): round(red[L][t] / n, 4) for t in THRS} for L in LIT_LEVELS},
+            "lit_by_lit": {str(L): round(lit[L] / n, 4) for L in LIT_LEVELS},
             "low_overhead": round(low / len(over), 3) if over else 0.0}
 
 
-def glow_index(feat, ratio_thr=1.4, norm=0.15, min_cloud=0.1):
-    """0~1 連續指標:紅光雲覆蓋 × 頭頂開口 ×(畫布存在)。"""
+def _nearest(d, x):
+    """字典 {門檻字串: 值} 取最接近 x 的鍵(舊證據可能缺新門檻)。"""
+    return d[min(d, key=lambda k: abs(float(k) - x))]
+
+
+def glow_index(feat, ratio_thr=1.4, norm=0.15, min_cloud=0.1, lit_min=None):
+    """0~1 連續指標:紅光雲覆蓋 × 頭頂開口 ×(畫布存在)。lit_min 為「被照亮」的絕對反照率下限(舊證據沒有整張表時忽略)。"""
     if not feat:
         return None
-    key = str(min(THRS, key=lambda t: abs(t - ratio_thr)))
-    idx = min(1.0, feat["red_frac"][key] / norm) * (1 - feat["low_overhead"])
+    tab = feat.get("red_by_lit")
+    if tab and lit_min is not None:
+        row = tab[min(tab, key=lambda k: abs(math.log(float(k) / lit_min)))]
+    else:
+        row = feat["red_frac"]
+    idx = min(1.0, _nearest(row, ratio_thr) / norm) * (1 - feat["low_overhead"])
     if feat["cloud_frac"] < min_cloud:
         idx *= feat["cloud_frac"] / min_cloud
     return idx

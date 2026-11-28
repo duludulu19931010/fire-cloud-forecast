@@ -152,6 +152,34 @@ class Sat(unittest.TestCase):
         self.assertEqual(out, ["AHI-L1b-FLDK/", "AHI-x.nc"])           # 不含請求本身的 Prefix;分頁會接續取
         self.assertIn("continuation-token=T2", calls[1])
 
+    def test_dusk_quantisation_noise_is_not_mistaken_for_glow(self):
+        sc = scene()                                           # 扇形內全是高雲,但可見光只比零高 ~5 個計數(黃昏、地面已黑)
+        for i, j in sat._cells_within(sc, BALI["lat"], BALI["lon"], 20, 220, 250, 30):
+            sc.r03[i][j] = 0.003
+            sc.r01[i][j] = 0.0 if (i + j) % 2 else 0.003       # 藍光最先消失 → 一半像素比值「無限大」
+        f = sat.glow_features(sc, BALI, 250.0, 299.0)
+        self.assertEqual(f["lit_frac"], 0.0)                   # 不再把雜訊當成「被照亮」
+        self.assertLess(sat.glow_index(f, 1.4, lit_min=sat.LIT_DEFAULT), 0.05)
+
+    def test_thin_bright_red_band_is_detected_and_table_is_monotone(self):
+        sc = scene(red_cloud=False)
+        cells = list(sat._cells_within(sc, BALI["lat"], BALI["lon"], 20, 220, 250, 30))
+        for k, (i, j) in enumerate(cells):
+            sc.bt[i][j] = 240.0                                # 整個扇形都是高雲(畫布)
+            if k % 4 == 0:                                     # 25% 面積是「亮而偏紅」(紅 0.03、藍 0.008 → 比 3.75)
+                sc.r03[i][j], sc.r01[i][j] = 0.03, 0.008
+            else:                                              # 其餘是黃昏雜訊
+                sc.r03[i][j], sc.r01[i][j] = 0.003, 0.0
+        f = sat.glow_features(sc, BALI, 250.0, 299.0)
+        self.assertGreater(sat.glow_index(f, 1.4, lit_min=sat.LIT_DEFAULT), 0.9)
+        self.assertGreater(sat.glow_index(f, 3.0, lit_min=sat.LIT_DEFAULT), 0.9)
+        tab = f["red_by_lit"]
+        for L in tab:                                          # 紅度門檻越高、亮度門檻越高,比例只會越小
+            vals = [tab[L][str(t)] for t in sat.THRS]
+            self.assertEqual(vals, sorted(vals, reverse=True))
+        lv = [tab[str(L)]["1.4"] for L in sat.LIT_LEVELS]
+        self.assertEqual(lv, sorted(lv, reverse=True))
+
     def test_layer_fractions_and_png(self):
         sc = scene()
         la, lo = geo.dest(BALI["lat"], BALI["lon"], 250.0, 100)

@@ -53,4 +53,15 @@ if sc:
     flat = [v for r in sc.bt for v in r if v is not None]
     print(f"   紅外亮溫有值格數 {len(flat)}/{sc.ny * sc.nx};範圍 {min(flat):.1f}–{max(flat):.1f} K")
     print("   預覽圖(紅線=台灣粗略海岸線,檢查像素定位;白天無雲處陸海反差最明顯):", sat.preview(sc, ".cache/sat/probe.png", outline=sat.TAIWAN_OUTLINE))
-    print("   偵測器特徵(八里,朝西):", sat.glow_features(sc, {"lat": 25.15, "lon": 121.43}, 250.0, 299.0))
+    f = sat.glow_features(sc, {"lat": 25.15, "lon": 121.43}, 250.0, 299.0)
+    if f:
+        print(f"   偵測器特徵(八里,朝西;扇形 {f['n']} 格):雲覆蓋 {f['cloud_frac']}、頭頂低雲 {f['low_overhead']}、"
+              f"被照亮(紅光反照率≥{sat.LIT_DEFAULT}){f['lit_frac']}")
+        print("   「被紅光照亮的雲」佔扇形面積比例 —— 列=紅光反照率下限(越大越亮),欄=紅/藍比門檻:")
+        cols = ("1.1", "1.4", "2.0", "3.0")
+        print("      亮度下限  被照亮 | " + "  ".join(f"≥{c:>4}" for c in cols))
+        for L, row in f["red_by_lit"].items():
+            print(f"      {L:>8}  {f['lit_by_lit'][L]:>6} | " + "  ".join(f"{row[c]:>6}" for c in cols))
+        print("   glow_index(先驗 thr=1.4, lit≥0.008):", round(sat.glow_index(f, 1.4, lit_min=sat.LIT_DEFAULT), 3), "(≥0.4 會被判成「有發生」)")
+    else:
+        print("   偵測器特徵:None(扇形內可用像素不足)")

@@ -291,20 +291,23 @@ def learn_detector(truth_rows, labels, calib):
     pos, neg = sum(y for _, y in pairs), sum(1 - y for _, y in pairs)
     if len(pairs) < 15 or pos < 4 or neg < 4:
         return None, None
-    from .sat import glow_index
+    from .sat import LIT_LEVELS, glow_index
+    use_lit = all(f.get("red_by_lit") for f, _ in pairs)               # 新證據有「亮度門檻 × 紅度門檻」整張表,舊證據沒有
+    levels = LIT_LEVELS if use_lit else (None,)
 
-    def ba(thr, tau):
-        tp = sum(1 for f, y in pairs if y and (glow_index(f, thr) or 0) >= tau)
-        tn = sum(1 for f, y in pairs if not y and (glow_index(f, thr) or 0) < tau)
+    def ba(thr, tau, lit):
+        tp = sum(1 for f, y in pairs if y and (glow_index(f, thr, lit_min=lit) or 0) >= tau)
+        tn = sum(1 for f, y in pairs if not y and (glow_index(f, thr, lit_min=lit) or 0) < tau)
         return (tp / pos + tn / neg) / 2
     cur = dict(DETECTOR_PRIOR, **(calib.get("detector") or {}))
-    cur_ba = ba(cur["ratio_thr"], cur["tau"])
+    cur_ba = ba(cur["ratio_thr"], cur["tau"], cur.get("lit_min") if use_lit else None)
     best, best_ba = cur, cur_ba
-    for t in THRS:
-        for tau in [i / 20 for i in range(1, 20)]:
-            b = ba(t, tau)
-            if b > best_ba + 0.03:
-                best, best_ba = {"ratio_thr": t, "tau": tau}, b
+    for L in levels:
+        for t in THRS:
+            for tau in [i / 20 for i in range(1, 20)]:
+                b_ = ba(t, tau, L)
+                if b_ > best_ba + 0.03:
+                    best, best_ba = dict({"ratio_thr": t, "tau": tau}, **({"lit_min": L} if L else {})), b_
     return best, round(best_ba, 3)
 
 

@@ -61,7 +61,7 @@ def sat_truth(hs, event, sfc_k, detector):
 
 def judge_sat(feat, detector):
     d = dict(sat.DETECTOR_PRIOR, **(detector or {}))
-    return 1 if (sat.glow_index(feat, d["ratio_thr"]) or 0) >= d["tau"] else 0
+    return 1 if (sat.glow_index(feat, d["ratio_thr"], lit_min=d.get("lit_min")) or 0) >= d["tau"] else 0
 
 
 def row_y(row, detector=None):

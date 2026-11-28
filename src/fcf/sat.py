@@ -375,11 +375,20 @@ class Himawari:
 
 
 # ───────────────────────── 預覽圖(人工驗證用,純標準庫 PNG) ─────────────────────────
+# 台灣本島粗略海岸線(約 ±5–10 km),疊在預覽圖上檢查衛星像素定位有沒有對準:白天無雲處陸地與海面反差明顯,紅線應落在邊界上。
+TAIWAN_OUTLINE = [(25.30, 121.54), (25.00, 122.00), (24.60, 121.87), (24.00, 121.62), (23.50, 121.45), (23.10, 121.38),
+                  (22.75, 121.15), (22.35, 120.90), (21.90, 120.85), (22.05, 120.70), (22.45, 120.52), (22.62, 120.27),
+                  (23.00, 120.10), (23.45, 120.13), (23.75, 120.18), (24.28, 120.50), (24.60, 120.80), (24.85, 120.92),
+                  (25.05, 121.18), (25.18, 121.40)]
+
+
 def write_png(path, rows):
     import struct
     import zlib
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     h, w = len(rows), len(rows[0])
     raw = b"".join(b"\x00" + bytes(c for px in r for c in px) for r in rows)
+
     def chunk(t, d):
         c = struct.pack(">I", len(d)) + t + d
         return c + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
@@ -388,24 +397,37 @@ def write_png(path, rows):
                 + chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b""))
 
 
-def preview(sc, path):
-    """偽真彩色:紅=r03、藍=r01、綠=平均;無可見光時用亮溫灰階。"""
+def preview(sc, path, outline=None, scale=3):
+    """偽真彩色:紅=r03、藍=r01、綠=平均;可見光太暗(黃昏/夜間)的像素改用紅外亮溫灰階(越冷越亮)。outline 為海岸線疊圖。"""
     vis = sc.r03 is not None and sc.r01 is not None
     flat = sorted(v for row in (sc.r03 if vis else sc.bt) for v in row if v is not None)
     if not flat:
         return False
-    hi = flat[int(0.98 * (len(flat) - 1))] or 1.0
+    hi = max(flat[int(0.98 * (len(flat) - 1))], 1e-6)
+    mark = set()
+    if outline:
+        pts = outline + [outline[0]]
+        for (a, b), (c, d) in zip(pts, pts[1:]):
+            n = max(2, int(max(abs(c - a), abs(d - b)) / 0.02))
+            for k in range(n + 1):
+                cell = sc.cell(a + (c - a) * k / n, b + (d - b) * k / n)
+                if cell:
+                    mark.add(cell)
     rows = []
     for i in range(sc.ny):
         row = []
         for j in range(sc.nx):
-            if vis and sc.r03[i][j] is not None and sc.r01[i][j] is not None:
-                r, b = (max(0.0, min(1.0, sc.r03[i][j] / hi)) ** 0.5, max(0.0, min(1.0, sc.r01[i][j] / hi)) ** 0.5)
-                row.append((int(255 * r), int(255 * (r + b) / 2), int(255 * b)))
+            if (i, j) in mark:
+                px = (255, 40, 40)
+            elif vis and sc.r03[i][j] is not None and sc.r01[i][j] is not None and max(sc.r03[i][j], sc.r01[i][j]) >= 0.02:
+                r = max(0.0, min(1.0, sc.r03[i][j] / hi)) ** 0.5
+                b = max(0.0, min(1.0, sc.r01[i][j] / hi)) ** 0.5
+                px = (int(255 * r), int(255 * (r + b) / 2), int(255 * b))
             else:
                 v = sc.bt[i][j]
                 g = 0 if v is None else int(255 * max(0.0, min(1.0, (300 - v) / 80)))
-                row.append((g, g, g))
-        rows.append(row)
+                px = (g, g, g)
+            row.extend([px] * scale)
+        rows.extend([row] * scale)
     write_png(path, rows)
     return True

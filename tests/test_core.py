@@ -254,6 +254,18 @@ class Hsd(unittest.TestCase):
         sc.r03[0][0], sc.r01[0][0] = -1.0, 0.0
         self.assertTrue(sat.preview(sc, os.path.join(tempfile.mkdtemp(), "p.png")))
 
+    def test_preview_creates_directory_draws_outline_and_scales(self):
+        sc = scene()
+        path = os.path.join(tempfile.mkdtemp(), "nested", "dir", "p.png")        # 目錄不存在也要能寫(sat-probe 實際踩到的 bug)
+        self.assertTrue(sat.preview(sc, path, outline=sat.TAIWAN_OUTLINE, scale=2))
+        with open(path, "rb") as f:
+            hdr = f.read(24)
+        self.assertEqual(struct.unpack(">II", hdr[16:24]), (sc.nx * 2, sc.ny * 2))
+        dark = scene()
+        dark.r03 = [[0.001] * dark.nx for _ in range(dark.ny)]
+        dark.r01 = [[0.001] * dark.nx for _ in range(dark.ny)]                    # 黃昏:可見光太暗 → 改畫紅外灰階,不當掉
+        self.assertTrue(sat.preview(dark, os.path.join(tempfile.mkdtemp(), "d.png")))
+
     def _fake(self, hs_grid):
         bbox, ts = (23.0, 119.0, 26.5, 123.5), datetime(2026, 11, 23, 9, 5, tzinfo=timezone.utc).timestamp()
         blobs = {}

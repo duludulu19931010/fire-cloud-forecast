@@ -52,5 +52,5 @@ print("4) 場景:", None if sc is None else f"{sc.ny}x{sc.nx}, ts={sc.ts}", "" i
 if sc:
     flat = [v for r in sc.bt for v in r if v is not None]
     print(f"   紅外亮溫有值格數 {len(flat)}/{sc.ny * sc.nx};範圍 {min(flat):.1f}–{max(flat):.1f} K")
-    print("   預覽圖:", sat.preview(sc, ".cache/sat/probe.png"))
+    print("   預覽圖(紅線=台灣粗略海岸線,檢查像素定位;白天無雲處陸海反差最明顯):", sat.preview(sc, ".cache/sat/probe.png", outline=sat.TAIWAN_OUTLINE))
     print("   偵測器特徵(八里,朝西):", sat.glow_features(sc, {"lat": 25.15, "lon": 121.43}, 250.0, 299.0))

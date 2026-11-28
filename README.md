@@ -63,7 +63,9 @@
 3. 先驗證衛星:Actions → `sat-probe` → Run workflow(或本機 `PYTHONPATH=src python scripts/sat_probe.py`):逐步印出 S3 目錄、HSD 檔頭(逐區塊檢查)、關鍵檔頭值是否合理、台北像素值、組出的場景與預覽圖。**S3 目錄、檔名、HSD 檔頭與校正係數已用 sat-probe 對真實檔案驗證(紅外亮溫 220–292 K 合理);像素定位的準確度與可見光數值仍待驗證**,請把輸出貼回來。
 4. Actions → `hourly-forecast` → Run workflow,看 log 有沒有 `[fetch]`/`[meteoblue]`/`[sat]` 失敗訊息。
 5. (建議)Actions → `backfill-cold-start` → days=30。
-6. Settings → Pages → Source 選 `data` 分支。網頁:`https://<user>.github.io/<repo>/`(`web/index.html`,每小時由 workflow 複製到 data 分支);
+6. Settings → Pages → Build and deployment → Source 選 **Deploy from a branch**,Branch 選 `data`、資料夾選 `/ (root)`,按 Save。
+   (官方文件:GITHUB_TOKEN 推送的 commit 不會自動觸發 Pages 建置,所以 hourly workflow 最後一步會呼叫 Pages API 主動請求建置。)
+   網頁:`https://<user>.github.io/<repo>/`(`web/index.html`,每小時由 workflow 複製到 data 分支);
    API:`.../next24h.json`、`.../charts/<site>.svg`、`.../REPORT.md`。
 7. 校正 `config/sites.json` 的座標/海拔(`verify: true`)與山區 `base`/`light`。回報入口:Issues → 「觀測回報」。
 

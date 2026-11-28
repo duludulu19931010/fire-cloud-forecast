@@ -35,24 +35,24 @@
  },
  "sunrise": {
   "snapshots": 13,
-  "events": 6,
+  "events": 9,
   "by_src": {
    "human": 0,
-   "sat": 6,
+   "sat": 9,
    "cwa": 0
   },
   "base_rate": 0.0,
-  "decision": "樣本不足(6/20 場有真值),使用先驗",
+  "decision": "樣本不足(9/20 場有真值),使用先驗",
   "oos": false,
-  "brier": 0.01,
+  "brier": 0.0089,
   "BSS": null,
   "AUC": null,
   "by_lead": {},
   "reliability": [
    {
     "bin": "0-20%",
-    "n": 6,
-    "mean_p": 0.1,
+    "n": 10,
+    "mean_p": 0.092,
     "obs": 0.0
    }
   ]
@@ -133,6 +133,6 @@
    "cwa": 0.6
   },
   "human_labels": 0,
-  "truth_rows": 26
+  "truth_rows": 172
  }
 }

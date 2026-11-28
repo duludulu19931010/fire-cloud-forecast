@@ -3,73 +3,73 @@
 <rect width="760" height="330" fill="var(--bg)"/>
 <text x="56" y="16" font-size="13" font-weight="600">太平山・未來 24 小時</text>
 <line x1="56.0" y1="26" x2="56.0" y2="306" stroke="var(--grid)"/>
-<text x="56.0" y="322" text-anchor="middle">17:00</text>
+<text x="56.0" y="322" text-anchor="middle">18:00</text>
 <line x1="142.2" y1="26" x2="142.2" y2="306" stroke="var(--grid)"/>
-<text x="142.2" y="322" text-anchor="middle">20:00</text>
+<text x="142.2" y="322" text-anchor="middle">21:00</text>
 <line x1="228.5" y1="26" x2="228.5" y2="306" stroke="var(--grid)"/>
-<text x="228.5" y="322" text-anchor="middle">23:00</text>
+<text x="228.5" y="322" text-anchor="middle">00:00</text>
 <line x1="314.8" y1="26" x2="314.8" y2="306" stroke="var(--grid)"/>
-<text x="314.8" y="322" text-anchor="middle">02:00</text>
+<text x="314.8" y="322" text-anchor="middle">03:00</text>
 <line x1="401.0" y1="26" x2="401.0" y2="306" stroke="var(--grid)"/>
-<text x="401.0" y="322" text-anchor="middle">05:00</text>
+<text x="401.0" y="322" text-anchor="middle">06:00</text>
 <line x1="487.2" y1="26" x2="487.2" y2="306" stroke="var(--grid)"/>
-<text x="487.2" y="322" text-anchor="middle">08:00</text>
+<text x="487.2" y="322" text-anchor="middle">09:00</text>
 <line x1="573.5" y1="26" x2="573.5" y2="306" stroke="var(--grid)"/>
-<text x="573.5" y="322" text-anchor="middle">11:00</text>
+<text x="573.5" y="322" text-anchor="middle">12:00</text>
 <line x1="659.8" y1="26" x2="659.8" y2="306" stroke="var(--grid)"/>
-<text x="659.8" y="322" text-anchor="middle">14:00</text>
+<text x="659.8" y="322" text-anchor="middle">15:00</text>
 <line x1="746.0" y1="26" x2="746.0" y2="306" stroke="var(--grid)"/>
-<text x="746.0" y="322" text-anchor="middle">17:00</text>
+<text x="746.0" y="322" text-anchor="middle">18:00</text>
 <text x="50" y="46" text-anchor="end">高雲</text>
-<rect x="56.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.69"/>
-<rect x="84.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.81"/>
-<rect x="113.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.64"/>
-<rect x="142.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.67"/>
+<rect x="56.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.81"/>
+<rect x="84.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.64"/>
+<rect x="113.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.67"/>
+<rect x="142.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.63"/>
 <rect x="171.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.63"/>
-<rect x="199.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.63"/>
-<rect x="228.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.66"/>
-<rect x="257.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.58"/>
-<rect x="286.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.22"/>
-<rect x="314.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.13"/>
-<rect x="343.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.42"/>
-<rect x="372.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.34"/>
-<rect x="401.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.48"/>
-<rect x="429.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.52"/>
-<rect x="458.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.66"/>
+<rect x="199.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.66"/>
+<rect x="228.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.58"/>
+<rect x="257.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.22"/>
+<rect x="286.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.13"/>
+<rect x="314.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.42"/>
+<rect x="343.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.34"/>
+<rect x="372.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.48"/>
+<rect x="401.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.52"/>
+<rect x="429.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.66"/>
+<rect x="458.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.41"/>
 <rect x="487.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.41"/>
-<rect x="516.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.41"/>
-<rect x="544.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.37"/>
-<rect x="573.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.30"/>
-<rect x="602.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.32"/>
-<rect x="631.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
-<rect x="659.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.28"/>
-<rect x="688.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.20"/>
-<rect x="717.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.29"/>
+<rect x="516.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.37"/>
+<rect x="544.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.30"/>
+<rect x="573.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.32"/>
+<rect x="602.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
+<rect x="631.0" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.28"/>
+<rect x="659.8" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.20"/>
+<rect x="688.5" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.29"/>
+<rect x="717.2" y="34" width="29.2" height="18" fill="#4a7fb5" opacity="0.65"/>
 <text x="50" y="68" text-anchor="end">中雲</text>
 <rect x="56.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="84.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="113.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
-<rect x="142.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
-<rect x="171.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
+<rect x="142.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
+<rect x="171.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.10"/>
 <rect x="199.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.10"/>
-<rect x="228.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.10"/>
-<rect x="257.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.30"/>
-<rect x="286.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.23"/>
-<rect x="314.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.10"/>
-<rect x="343.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.19"/>
-<rect x="372.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.22"/>
-<rect x="401.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.30"/>
-<rect x="429.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.19"/>
-<rect x="458.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.28"/>
-<rect x="487.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.22"/>
-<rect x="516.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.19"/>
+<rect x="228.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.30"/>
+<rect x="257.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.23"/>
+<rect x="286.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.10"/>
+<rect x="314.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.19"/>
+<rect x="343.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.22"/>
+<rect x="372.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.30"/>
+<rect x="401.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.19"/>
+<rect x="429.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.28"/>
+<rect x="458.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.22"/>
+<rect x="487.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.19"/>
+<rect x="516.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="544.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="573.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="602.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="631.0" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
-<rect x="659.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
-<rect x="688.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.18"/>
-<rect x="717.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.28"/>
+<rect x="659.8" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.18"/>
+<rect x="688.5" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.28"/>
+<rect x="717.2" y="56" width="29.2" height="18" fill="#4a7fb5" opacity="0.10"/>
 <text x="50" y="90" text-anchor="end">低雲</text>
 <rect x="56.0" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="84.8" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
@@ -81,26 +81,26 @@
 <rect x="257.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="286.0" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="314.8" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
-<rect x="343.5" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
+<rect x="343.5" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
 <rect x="372.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
 <rect x="401.0" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
 <rect x="429.8" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
 <rect x="458.5" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
-<rect x="487.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
+<rect x="487.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
 <rect x="516.0" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
-<rect x="544.8" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.08"/>
-<rect x="573.5" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
-<rect x="602.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.12"/>
-<rect x="631.0" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.17"/>
-<rect x="659.8" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.25"/>
-<rect x="688.5" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.26"/>
-<rect x="717.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.31"/>
+<rect x="544.8" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.09"/>
+<rect x="573.5" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.12"/>
+<rect x="602.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.17"/>
+<rect x="631.0" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.25"/>
+<rect x="659.8" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.26"/>
+<rect x="688.5" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.31"/>
+<rect x="717.2" y="78" width="29.2" height="18" fill="#4a7fb5" opacity="0.33"/>
 <text x="50" y="138" text-anchor="end">機率</text>
-<rect x="458.5" y="121.1" width="33.5" height="46.9" fill="#6a5acd" opacity=".75"/>
-<text x="475.3" y="117.1" text-anchor="middle">雲海 78%</text>
+<rect x="429.8" y="121.1" width="33.5" height="46.9" fill="#6a5acd" opacity=".75"/>
+<text x="446.5" y="117.1" text-anchor="middle">雲海 78%</text>
 <line x1="56" y1="168" x2="746" y2="168" stroke="var(--grid)"/>
 <text x="50" y="218" text-anchor="end">雲海</text>
-<polyline fill="none" stroke="#2a9d8f" stroke-width="2" points="84.8,230.0 113.5,230.0 142.2,230.0 171.0,230.0 199.8,230.0 228.5,230.0 257.2,230.0 286.0,230.0 314.8,225.8 343.5,224.6 372.2,217.7 401.0,212.3 429.8,211.9 458.5,209.1 487.2,204.7 516.0,203.7 544.8,204.2 573.5,201.3 602.2,214.2 631.0,217.6 659.8,222.1 688.5,227.9 717.2,228.2 746.0,227.2"/>
+<polyline fill="none" stroke="#2a9d8f" stroke-width="2" points="84.8,230.0 113.5,230.0 142.2,230.0 171.0,230.0 199.8,230.0 228.5,230.0 257.2,230.0 286.0,225.8 314.8,224.6 343.5,217.7 372.2,212.3 401.0,211.9 429.8,209.1 458.5,204.7 487.2,203.7 516.0,204.2 544.8,201.3 573.5,214.2 602.2,217.6 631.0,222.1 659.8,227.9 688.5,228.2 717.2,227.2 746.0,230.0"/>
 <text x="50" y="262" text-anchor="end">琉璃光</text>
-<polyline fill="none" stroke="#6a5acd" stroke-width="2" points="84.8,274.0 113.5,274.0 142.2,274.0 171.0,274.0 199.8,274.0 228.5,274.0 257.2,274.0 286.0,274.0 314.8,273.4 343.5,273.3 372.2,272.9 401.0,272.4 429.8,274.0 458.5,274.0 487.2,274.0 516.0,274.0 544.8,274.0 573.5,274.0 602.2,274.0 631.0,274.0 659.8,274.0 688.5,274.0 717.2,274.0 746.0,274.0"/>
+<polyline fill="none" stroke="#6a5acd" stroke-width="2" points="84.8,274.0 113.5,274.0 142.2,274.0 171.0,274.0 199.8,274.0 228.5,274.0 257.2,274.0 286.0,273.4 314.8,273.3 343.5,272.9 372.2,272.4 401.0,274.0 429.8,274.0 458.5,274.0 487.2,274.0 516.0,274.0 544.8,274.0 573.5,274.0 602.2,274.0 631.0,274.0 659.8,274.0 688.5,274.0 717.2,274.0 746.0,274.0"/>
 </svg>

@@ -34,7 +34,7 @@
   ]
  },
  "sunrise": {
-  "snapshots": 10,
+  "snapshots": 13,
   "events": 6,
   "by_src": {
    "human": 0,
@@ -58,7 +58,7 @@
   ]
  },
  "sea_of_clouds": {
-  "snapshots": 14,
+  "snapshots": 15,
   "events": 3,
   "by_src": {
    "human": 0,
@@ -82,7 +82,7 @@
   ]
  },
  "ryuli": {
-  "snapshots": 10,
+  "snapshots": 13,
   "events": 9,
   "by_src": {
    "human": 0,

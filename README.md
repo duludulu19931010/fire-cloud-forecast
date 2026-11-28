@@ -60,7 +60,7 @@
 ## 部署
 1. 推上 `main`;Settings → Actions → Workflow permissions 選 **Read and write**。
 2. Secrets(皆選填):`CWA_API_KEY`、`METEOBLUE_API_KEY`、`OPEN_METEO_API_KEY`。**沒有 CWA 金鑰 → 雲海/琉璃光沒有觀測型真值,只能靠人工回報學習。**
-3. 先驗證衛星:Actions → `sat-probe` → Run workflow(或本機 `PYTHONPATH=src python scripts/sat_probe.py`):逐步印出 S3 目錄、HSD 檔頭(逐區塊檢查)、關鍵檔頭值是否合理、台北像素值、組出的場景與預覽圖。**S3 目錄層級已用 sat-probe 實測確認(`AHI-L1b-FLDK/年/月/日/時分/`);HSD 檔頭欄位位置與像素定位仍待對真實檔案驗證**,請把輸出貼回來。
+3. 先驗證衛星:Actions → `sat-probe` → Run workflow(或本機 `PYTHONPATH=src python scripts/sat_probe.py`):逐步印出 S3 目錄、HSD 檔頭(逐區塊檢查)、關鍵檔頭值是否合理、台北像素值、組出的場景與預覽圖。**S3 目錄、檔名、HSD 檔頭與校正係數已用 sat-probe 對真實檔案驗證(紅外亮溫 220–292 K 合理);像素定位的準確度與可見光數值仍待驗證**,請把輸出貼回來。
 4. Actions → `hourly-forecast` → Run workflow,看 log 有沒有 `[fetch]`/`[meteoblue]`/`[sat]` 失敗訊息。
 5. (建議)Actions → `backfill-cold-start` → days=30。
 6. Settings → Pages → Source 選 `data` 分支。網頁:`https://<user>.github.io/<repo>/`(`web/index.html`,每小時由 workflow 複製到 data 分支);
@@ -73,7 +73,7 @@
 已用真實管線輸出 + 最小假 DOM 跑過渲染與互動邏輯;**尚未在真實瀏覽器/手機上目視驗證版面**。
 
 ## 已知限制(請先讀)
-- **我在沙箱無法連外網**:所有「真實連線」都沒測過——Open-Meteo 新端點(集合/空品/Previous Runs)、Meteoblue 欄位名、CWA 欄位、Himawari 的 HSD 檔頭解析與像素定位(S3 目錄與檔名已由 sat-probe 實測確認)。
+- **我在沙箱無法連外網**:所有「真實連線」都沒測過——Open-Meteo 新端點(集合/空品/Previous Runs)、Meteoblue 欄位名、CWA 欄位、Himawari 的像素定位準確度與可見光數值(S3 目錄、檔名、HSD 檔頭已由 sat-probe 實測確認)。
   已測的是:解析函式(用合成回應)、HSD 檔頭/校正/定位(用依規格寫出的合成 HSD 檔,含假 S3 目錄的完整取檔流程)、偵測器、全部學習機制、端到端流程(假衛星場景 + 合成氣象資料)。
 - Meteoblue 免費版 clouds 套件只有 ≥3 小時解析度;欄位名稱採容錯解析,對不上會把實際 keys 印到 log。
 - 衛星偵測是**代理指標**:衛星從上往下看被紅光照亮的雲頂,不等於地面看到的雲底;閾值是先驗,必須靠人工回報校準(機制已內建)。

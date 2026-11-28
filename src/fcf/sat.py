@@ -2,8 +2,9 @@
 資料:NOAA 在 AWS 公開 S3(noaa-himawari9)的 AHI-L1b-FLDK —— JMA 原生 HSD 格式(bz2 壓縮、每波段切 10 段、10 分鐘一景)。
 目錄 AHI-L1b-FLDK/年/月/日/時分/ 與檔名 HS_H09_日期_時分_Bxx_FLDK_Rxx_Sxxxx.DAT.bz2 已由 sat-probe 在 GitHub 上實測確認。
 HSD 檔頭/校正/地理定位依 JMA「Himawari Standard Data User's Guide」的格式寫成,純標準庫(bz2 + struct),不需 numpy。
-⚠ 檔頭欄位位置我尚未對真實檔案驗證:parse_hsd 逐一檢查區塊編號與長度,對不上會丟出含十六進位傾印的錯誤;
-   請再跑一次 sat-probe,輸出會列出解析出的關鍵檔頭值(波長、CFAC、COFF…)供對照。"""
+已由 sat-probe 對真實檔案驗證:目錄/檔名、檔頭區塊、波長、CFAC/COFF、校正係數、紅外亮溫範圍(220–292 K)。
+⚠ 尚待驗證:像素定位對真實影像(海岸線)的準確度、日落時可見光反照率的數值、偵測器閾值(先驗,需人工回報校準)。
+"""
 import bz2
 import json
 import math
@@ -25,7 +26,7 @@ BUCKET = "noaa-himawari9"
 PREFIX = "AHI-L1b-FLDK/{Y}/{m}/{d}/{H}{M}/"                 # 已實測確認
 NS = "{http://s3.amazonaws.com/doc/2006-03-01/}"
 SEGS = 10
-GRID = {20: (5500, 10233137, 2750.5), 10: (11000, 20466275, 5500.5), 5: (22000, 40932549, 11000.5)}   # 全盤行數 / CFAC=LFAC / COFF=LOFF(選段用,實際換算以檔頭為準)
+GRID = {20: (5500, 20466275, 2750.5), 10: (11000, 40932549, 5500.5), 5: (22000, 81865099, 11000.5)}   # 全盤行數 / CFAC=LFAC / COFF=LOFF(sat-probe 對真實檔頭實測;選段預估用,實際換算一律以檔頭為準)
 BLOCKS = ((1, 282), (2, 50), (3, 127), (4, 139), (5, 147), (6, 259), (7, 47))                          # HSD 檔頭前 7 個固定長度區塊
 
 
@@ -109,7 +110,7 @@ def convert(p, cnt):
         return None
     rad = p["gain"] * cnt + p["const"]
     if p["band"] <= 6:
-        return p["cprime"] * rad
+        return max(0.0, p["cprime"] * rad)             # 暗像素的校正偏移會算出負值,反照率不可能為負
     h, c, k = p.get("h") or 6.62606957e-34, p.get("cc") or 2.99792458e8, p.get("k") or 1.3806488e-23
     lam, I = p["wl"] * 1e-6, rad * 1e6
     if I <= 0:
@@ -314,11 +315,14 @@ class Himawari:
             f.write(b)
         return b
 
-    def needed_segments(self, band):
-        """bbox 落在哪幾段:用規格預設值估線號(實際換算用檔頭)。"""
-        total, cfac, coff = self.grid[band_res(band)]
-        nl = total // SEGS
-        p = {"sub_lon": 140.7, "cfac": cfac, "lfac": cfac, "coff": coff, "loff": coff, "rs": 42164.0, "req": 6378.137, "rpol": 6356.7523}
+    def needed_segments(self, band, hdr=None):
+        """bbox 落在哪幾段。hdr=None 用規格預設值估;給 parse_hsd 結果則用真實檔頭(更可靠)。"""
+        if hdr is None:
+            total, cfac, coff = self.grid[band_res(band)]
+            nl = total // SEGS
+            p = {"sub_lon": 140.7, "cfac": cfac, "lfac": cfac, "coff": coff, "loff": coff, "rs": 42164.0, "req": 6378.137, "rpol": 6356.7523}
+        else:
+            nl, p = hdr["nline"], hdr
         la0, lo0, la1, lo1 = self.bbox
         lines = [pix[1] for a in range(5) for b in range(5)
                  if (pix := geo_to_pix(la0 + (la1 - la0) * a / 4, lo0 + (lo1 - lo0) * b / 4, p))]
@@ -345,10 +349,21 @@ class Himawari:
                 bands = {}
                 for band in ((13, 1, 3) if want_visible else (13,)):
                     segs = self.needed_segments(band)
-                    miss = [s for s in segs if (band, s) not in idx]
-                    if not segs or miss:
-                        raise RuntimeError(f"波段 {band} 缺檔(需要段 {segs},缺 {miss})")
-                    bands[band] = [parse_hsd(self._blob(idx[(band, s)])) for s in segs]
+                    if not segs:
+                        raise RuntimeError(f"波段 {band}:bbox 不在衛星視野內")
+                    parsed = {}
+
+                    def load(seg, band=band, parsed=parsed):
+                        if (band, seg) not in idx:
+                            raise RuntimeError(f"波段 {band} 缺第 {seg} 段(目錄只有 {sorted(s for b, s in idx if b == band)})")
+                        parsed[seg] = parse_hsd(self._blob(idx[(band, seg)]))
+                    for seg in segs:
+                        load(seg)
+                    real = self.needed_segments(band, parsed[segs[0]])          # 用真實檔頭重算;規格表若有誤差,在這裡自我修正
+                    for seg in real:
+                        if seg not in parsed:
+                            load(seg)
+                    bands[band] = [parsed[seg] for seg in real]
                 sc = build_scene(bands, self.bbox, self.step, t)
                 self._scenes[ck] = sc
                 if sc:
@@ -385,7 +400,7 @@ def preview(sc, path):
         row = []
         for j in range(sc.nx):
             if vis and sc.r03[i][j] is not None and sc.r01[i][j] is not None:
-                r, b = (min(1.0, sc.r03[i][j] / hi) ** 0.5, min(1.0, sc.r01[i][j] / hi) ** 0.5)
+                r, b = (max(0.0, min(1.0, sc.r03[i][j] / hi)) ** 0.5, max(0.0, min(1.0, sc.r01[i][j] / hi)) ** 0.5)
                 row.append((int(255 * r), int(255 * (r + b) / 2), int(255 * b)))
             else:
                 v = sc.bt[i][j]

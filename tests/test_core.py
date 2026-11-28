@@ -170,7 +170,7 @@ import io  # noqa: E402
 import struct  # noqa: E402
 import urllib.parse  # noqa: E402
 
-REAL = {"sub_lon": 140.7, "cfac": 10233137, "lfac": 10233137, "coff": 2750.5, "loff": 2750.5, "rs": 42164.0, "req": 6378.137, "rpol": 6356.7523}
+REAL = {"sub_lon": 140.7, "cfac": 20466275, "lfac": 20466275, "coff": 2750.5, "loff": 2750.5, "rs": 42164.0, "req": 6378.137, "rpol": 6356.7523}
 FAKE = dict(REAL, cfac=1023314, lfac=1023314, coff=275.5, loff=275.5)                    # 縮小版全盤:550×550,每段 55 行
 FAKE_GRID = {20: (550, 1023314, 275.5), 10: (550, 1023314, 275.5), 5: (550, 1023314, 275.5)}
 HC, CC, KB = 6.62606957e-34, 2.99792458e8, 1.3806488e-23
@@ -241,13 +241,22 @@ class Hsd(unittest.TestCase):
         self.assertIn("前 16 bytes", str(cm.exception))                # 錯誤訊息含十六進位傾印,方便遠端除錯
 
     def test_needed_segments_for_default_bbox(self):
-        segs = sat.Himawari(blob_dir=tempfile.mkdtemp()).needed_segments(13)
-        self.assertTrue(1 <= len(segs) <= 3 and all(1 <= x <= 10 for x in segs) and segs == sorted(segs))
+        hs = sat.Himawari(blob_dir=tempfile.mkdtemp())
+        for band in (13, 1, 3):
+            self.assertEqual(hs.needed_segments(band), [3, 4])          # 與 sat-probe 在真實檔頭上的結果一致(台北在第 3 段)
+        c, l = sat.geo_to_pix(25.05, 121.5, REAL)
+        self.assertEqual((c, l), (1824, 1446))                         # 與 sat-probe 對真實 B13 檔頭算出的台北 col/line 一致
 
-    def test_scene_from_fake_s3(self):
+    def test_visible_albedo_never_negative_and_preview_survives(self):
+        p = {"band": 1, "gain": 0.3774, "const": -7.547, "cprime": 0.00156, "err": 65535, "out": 65534}
+        self.assertEqual(sat.convert(p, 5), 0.0)                       # 暗像素:校正偏移算出負輻射 → 夾成 0
+        sc = scene()
+        sc.r03[0][0], sc.r01[0][0] = -1.0, 0.0
+        self.assertTrue(sat.preview(sc, os.path.join(tempfile.mkdtemp(), "p.png")))
+
+    def _fake(self, hs_grid):
         bbox, ts = (23.0, 119.0, 26.5, 123.5), datetime(2026, 11, 23, 9, 5, tzinfo=timezone.utc).timestamp()
         blobs = {}
-        hs = None
 
         def opener(url, timeout=0):
             if "list-type" in url:
@@ -256,12 +265,17 @@ class Hsd(unittest.TestCase):
                 body = "".join(f"<Contents><Key>{k}</Key></Contents>" for k in blobs if k.startswith(pre))
                 return io.BytesIO(f"<ListBucketResult {ns}>{body}</ListBucketResult>".encode())
             return io.BytesIO(blobs[urllib.parse.unquote(urllib.parse.urlparse(url).path.lstrip("/"))])
-        hs = sat.Himawari(bbox=bbox, step=0.1, opener=opener, grid=FAKE_GRID, blob_dir=tempfile.mkdtemp())
+        hs = sat.Himawari(bbox=bbox, step=0.1, opener=opener, grid=hs_grid, blob_dir=tempfile.mkdtemp())
+        truth_hs = sat.Himawari(bbox=bbox, step=0.1, grid=FAKE_GRID, blob_dir=tempfile.mkdtemp())
         for band, f in ((13, BT_F), (1, R01_F), (3, R03_F)):
-            for seg in hs.needed_segments(band):
+            for seg in sorted(set(hs.needed_segments(band)) | set(truth_hs.needed_segments(band))):
                 res = sat.band_res(band)
                 blobs[f"AHI-L1b-FLDK/2026/11/23/0900/HS_H09_20261123_0900_B{band:02d}_FLDK_R{res:02d}_S{seg:02d}10.DAT.bz2"] = make_hsd(band, seg, f)
-        sc = hs.scene(ts + 120)
+        return hs, ts + 120, bbox
+
+    def test_scene_from_fake_s3(self):
+        hs, ts, bbox = self._fake(FAKE_GRID)
+        sc = hs.scene(ts)
         self.assertIsNotNone(sc, hs.last_error)
         cells = [(i, j) for i in range(sc.ny) for j in range(sc.nx)]
         ok = [(i, j) for i, j in cells if sc.bt[i][j] is not None]
@@ -271,6 +285,16 @@ class Hsd(unittest.TestCase):
         self.assertAlmostEqual(ratios[len(ratios) // 2], 1.5, delta=0.1)       # 反照率比 = 設定的 1.5
         self.assertIsNone(sat.Himawari(bbox=bbox, opener=lambda *a, **k: io.BytesIO(b"<ListBucketResult/>"), grid=FAKE_GRID,
                                        blob_dir=tempfile.mkdtemp()).scene(ts, tries=1))      # 該時段沒檔 → None,不丟例外
+
+    def test_wrong_grid_table_is_self_corrected_from_headers(self):
+        wrong = {k: (v[0], v[1] // 2, v[2]) for k, v in FAKE_GRID.items()}          # 規格表錯 2 倍(就是 sat-probe 抓到的那種錯)
+        hs, ts, bbox = self._fake(wrong)
+        right = sat.Himawari(bbox=bbox, grid=FAKE_GRID, blob_dir=tempfile.mkdtemp())
+        self.assertNotEqual(hs.needed_segments(13), right.needed_segments(13))      # 預估確實選錯段
+        sc = hs.scene(ts)
+        self.assertIsNotNone(sc, hs.last_error)
+        filled = sum(v is not None for r in sc.bt for v in r) / (sc.ny * sc.nx)
+        self.assertGreater(filled, 0.95)                                            # 讀到檔頭後自動補抓正確的段
 
 
 # ───────────────────────── 自我學習(以合成資料驗證「真的學得到」) ─────────────────────────
